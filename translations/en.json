@@ -1,0 +1,23 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Set up Jackery Integration",
+          "description": "Enter your Jackery account credentials.",
+          "data": {
+            "username": "Username (Email)",
+            "password": "Password"
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "Failed to connect to the Jackery server. Please check your network connection.",
+        "invalid_auth": "Invalid username or password. Please check your credentials and try again.",
+        "unknown": "An unknown error occurred. Please check the logs."
+      },
+      "abort": {
+        "already_configured": "This Jackery account is already configured."
+      }
+    }
+}
+  
