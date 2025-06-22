@@ -6,6 +6,7 @@
     "issue_tracker": "https://github.com/theak/jackery-homeassistant/issues",
     "codeowners": ["@theak"],
     "requirements": ["requests>=2.31.0", "pycryptodomex>=3.19.0"],
+    "logo": "https://raw.githubusercontent.com/theak/jackery-homeassistant/main/logo.png",
     "iot_class": "cloud_polling",
     "config_flow": true
   }
