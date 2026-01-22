@@ -189,6 +189,10 @@ config/
 *.db-shm
 *.db-wal
 
+# Dev container and dev setup
+.devcontainer/
+DEV_SETUP.md
+
 # Temporary files
 *.tmp
 *.temp
@@ -209,4 +213,4 @@ config.local.yaml
 secrets.yaml
 
 # Deployment scripts
-deploy.sh 
+deploy.sh

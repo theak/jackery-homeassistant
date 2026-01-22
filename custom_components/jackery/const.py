@@ -3,6 +3,10 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntityDescription,
+)
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntityDescription,
@@ -86,23 +90,34 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         value=lambda value: value / 10.0,
     ),
     JackerySensorEntityDescription(
-        key="oac",
-        name="AC Output",
-        value=lambda value: "ON" if value == 1 else "OFF",
-        icon="mdi:power-plug",
-    ),
-    JackerySensorEntityDescription(
-        key="odc",
-        name="DC Output",
-        value=lambda value: "ON" if value == 1 else "OFF",
-        icon="mdi:power-socket-us",
-    ),
-    JackerySensorEntityDescription(
         key="acov",
         name="AC Output Voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value=lambda value: value / 10.0,
+    ),
+)
+
+# Binary sensor descriptions
+# These define all binary (ON/OFF) sensors for each device.
+BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
+    BinarySensorEntityDescription(
+        key="oac",
+        name="AC Output",
+        device_class=BinarySensorDeviceClass.POWER,
+        icon="mdi:power-plug",
+    ),
+    BinarySensorEntityDescription(
+        key="odcc",
+        name="DC Car Output",
+        device_class=BinarySensorDeviceClass.POWER,
+        icon="mdi:car",
+    ),
+    BinarySensorEntityDescription(
+        key="odcu",
+        name="USB Output",
+        device_class=BinarySensorDeviceClass.POWER,
+        icon="mdi:usb-port",
     ),
 )

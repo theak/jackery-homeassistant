@@ -13,26 +13,34 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 ## Features
 
 - 🔋 **Battery Monitoring**: Track remaining battery percentage and temperature
-- ⚡ **Power Monitoring**: Monitor input/output power, AC/DC output status
+- ⚡ **Power Monitoring**: Monitor input/output power in watts
 - ⏱️ **Time Tracking**: View time to full charge and remaining output time
-- 🔌 **Output Status**: Monitor AC and DC output status
+- 🔌 **Output Status**: Binary sensors for AC, DC car, and USB output status
 - 📊 **Real-time Updates**: Automatic polling every 60 seconds
 - 🔐 **Secure Authentication**: Uses your Jackery account credentials
 
 ## Supported Sensors
 
-| Sensor | Description | Unit |
-|--------|-------------|------|
-| Remaining Battery | Current battery level | % |
-| Battery Temperature | Battery temperature | °C |
-| Output Power | Current power output | W |
-| Input Power | Current power input | W |
-| AC Input Power | AC power input | W |
-| Time to Full | Estimated time to full charge | hours |
-| Remaining Output Time | Estimated remaining runtime | hours |
-| AC Output | AC output status | ON/OFF |
-| DC Output | DC output status | ON/OFF |
-| AC Output Voltage | AC output voltage | V |
+### Regular Sensors
+
+| Sensor                | Description                   | Unit  |
+| --------------------- | ----------------------------- | ----- |
+| Remaining Battery     | Current battery level         | %     |
+| Battery Temperature   | Battery temperature           | °C    |
+| Output Power          | Current power output          | W     |
+| Input Power           | Current power input           | W     |
+| AC Input Power        | AC power input                | W     |
+| Time to Full          | Estimated time to full charge | hours |
+| Remaining Output Time | Estimated remaining runtime   | hours |
+| AC Output Voltage     | AC output voltage             | V     |
+
+### Binary Sensors (ON/OFF)
+
+| Sensor        | Description               |
+| ------------- | ------------------------- |
+| AC Output     | AC output status          |
+| DC Car Output | DC car port output status |
+| USB Output    | USB output status         |
 
 ## Installation
 
@@ -64,17 +72,20 @@ The integration will automatically discover your Jackery devices and create sens
 ## Usage
 
 Once configured, you'll find your Jackery devices and their sensors in:
+
 - **Settings** → **Devices & Services** → **Entities**
 - Each device will have its own set of sensors
 
 You can use these sensors in:
+
 - **Dashboards**: Create custom dashboards to monitor your power station
 - **Automations**: Set up automations based on battery level, power status, etc.
 - **Templates**: Use sensor values in templates for custom calculations
 
-### Example Automation
+### Example Automations
 
 ```yaml
+# Low battery alert
 automation:
   - alias: "Low Battery Alert"
     trigger:
@@ -85,6 +96,17 @@ automation:
       - service: notify.mobile_app
         data:
           message: "Jackery battery is low: {{ states('sensor.jackery_device_remaining_battery') }}%"
+
+  # AC output turned on notification
+  - alias: "Jackery AC Output On"
+    trigger:
+      platform: state
+      entity_id: binary_sensor.jackery_device_ac_output
+      to: "on"
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Jackery AC output has been turned on"
 ```
 
 ## Troubleshooting
@@ -141,4 +163,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Note**: This is a community-driven integration and is not officially affiliated with Jackery. Use at your own risk. 
+**Note**: This is a community-driven integration and is not officially affiliated with Jackery. Use at your own risk.

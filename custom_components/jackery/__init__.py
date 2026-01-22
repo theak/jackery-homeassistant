@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import (
 from .api import JackeryAPI, JackeryAuthenticationError
 from .const import DOMAIN, POLLING_INTERVAL_SEC
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 _LOGGER = logging.getLogger(__name__)
 
 
