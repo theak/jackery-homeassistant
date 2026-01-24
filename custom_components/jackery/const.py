@@ -101,12 +101,22 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
 
 # Binary sensor descriptions
 # These define all binary (ON/OFF) sensors for each device.
+# Note: Different device models may emit different parameters:
+# - odc: DC Output (for models with single DC toggle for USB + Car)
+# - odcc: DC Car Output (for models with separate DC Car toggle)
+# - odcu: USB Output (for models with separate USB toggle)
 BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
     BinarySensorEntityDescription(
         key="oac",
         name="AC Output",
         device_class=BinarySensorDeviceClass.POWER,
         icon="mdi:power-plug",
+    ),
+    BinarySensorEntityDescription(
+        key="odc",
+        name="DC Output",
+        device_class=BinarySensorDeviceClass.POWER,
+        icon="mdi:power",
     ),
     BinarySensorEntityDescription(
         key="odcc",

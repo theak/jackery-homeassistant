@@ -70,7 +70,13 @@ class JackeryBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool | None:
-        """Return true if the binary sensor is on."""
+        """Return true if the binary sensor is on.
+        
+        Different Jackery models emit different DC output parameters:
+        - odc: DC Output (models with combined USB + Car toggle)
+        - odcc: DC Car Output (models with separate toggles)
+        - odcu: USB Output (models with separate toggles)
+        """
         value = self.coordinator.data.get(self.entity_description.key)
         if value is None:
             return None

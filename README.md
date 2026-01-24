@@ -39,8 +39,11 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 | Sensor        | Description               |
 | ------------- | ------------------------- |
 | AC Output     | AC output status          |
+| DC Output     | DC output status          |
 | DC Car Output | DC car port output status |
 | USB Output    | USB output status         |
+
+**Note:** Different Jackery device models may report different combinations of DC output sensors. Early exploration suggests some models use a combined `odc` parameter while others use separate `odcc` and `odcu` parameters.
 
 ## Installation
 
