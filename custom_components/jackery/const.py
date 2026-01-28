@@ -79,7 +79,7 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.HOURS,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
-        value=lambda value: value / 100.0,
+        value=lambda value: value / 10.0,
     ),
     JackerySensorEntityDescription(
         key="ot",
