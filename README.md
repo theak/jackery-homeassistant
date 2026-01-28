@@ -23,16 +23,17 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 
 ### Regular Sensors
 
-| Sensor                | Description                   | Unit  |
-| --------------------- | ----------------------------- | ----- |
-| Remaining Battery     | Current battery level         | %     |
-| Battery Temperature   | Battery temperature           | °C    |
-| Output Power          | Current power output          | W     |
-| Input Power           | Current power input           | W     |
-| AC Input Power        | AC power input                | W     |
-| Time to Full          | Estimated time to full charge | hours |
-| Remaining Output Time | Estimated remaining runtime   | hours |
-| AC Output Voltage     | AC output voltage             | V     |
+| Sensor                | Description                   | Unit     |
+| --------------------- | ----------------------------- | -------- |
+| Remaining Battery     | Current battery level         | %        |
+| Battery Temperature   | Battery temperature           | °C       |
+| Output Power          | Current power output          | W        |
+| Input Power           | Current power input           | W        |
+| AC Input Power        | AC power input                | W        |
+| Time to Full          | Estimated time to full charge | hours    |
+| Remaining Output Time | Estimated remaining runtime   | hours    |
+| AC Output Voltage     | AC output voltage             | V        |
+| Last Updated          | Timestamp of last data update | ISO 8601 |
 
 ### Binary Sensors (ON/OFF)
 

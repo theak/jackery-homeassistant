@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
+from homeassistant.util import dt as dt_util
 
 from .api import JackeryAPI, JackeryAuthenticationError
 from .const import DOMAIN, POLLING_INTERVAL_SEC
@@ -63,7 +64,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     data = await hass.async_add_executor_job(
                         api_client.get_device_detail, dev_id
                     )
-                    return data.get("data", {}).get("properties", {})
+                    properties = data.get("data", {}).get("properties", {})
+                    properties["last_updated"] = dt_util.now()
+                    return properties
             except JackeryAuthenticationError as err:
                 raise UpdateFailed(f"Authentication error: {err}")
             except Exception as err:
