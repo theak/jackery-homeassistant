@@ -97,6 +97,12 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value=lambda value: value / 10.0,
     ),
+    JackerySensorEntityDescription(
+        key="last_updated",
+        name="Last Updated",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        icon="mdi:clock",
+    ),
 )
 
 # Binary sensor descriptions

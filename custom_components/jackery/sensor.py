@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from homeassistant.components.sensor import (
     SensorEntity,
 )
@@ -67,7 +68,7 @@ class JackerySensor(CoordinatorEntity, SensorEntity):
         }
 
     @property
-    def native_value(self) -> str | int | float | None:
+    def native_value(self) -> str | int | float | datetime | None:
         """Return the state of the sensor."""
         value = self.coordinator.data.get(self.entity_description.key)
         if value is None:
