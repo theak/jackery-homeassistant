@@ -1,5 +1,4 @@
 {
-"name": "Jackery",
-"render_readme": true,
-"icon": "icon.png"
+  "name": "Jackery",
+  "render_readme": true
 }
