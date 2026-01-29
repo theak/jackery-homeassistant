@@ -1,7 +1,7 @@
 {
     "domain": "jackery",
     "name": "Jackery",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "documentation": "https://github.com/theak/jackery-homeassistant/blob/main/README.md",
     "issue_tracker": "https://github.com/theak/jackery-homeassistant/issues",
     "codeowners": ["@theak"],
@@ -9,4 +9,4 @@
     "icon": "icon.png",
     "iot_class": "cloud_polling",
     "config_flow": true
-  }
+}
