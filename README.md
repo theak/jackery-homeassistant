@@ -1,6 +1,4 @@
-> **Maintenance Notice (January 2025)**
->
-> While this custom integration currently works as of January 2025, I unfortunately have a full time job and haven't had time to actively maintain this or respond to issues. If you submit a reasonable pull request, I will do my best to test, review, and accept it. Thank you for your understanding!
+> While this custom integration currently works as of January 2026, I unfortunately have a full time job and can't respond to all issues. That being said, if you submit a reasonable pull request, I will review, respond, and merge it in if it looks good. Thank you for your understanding!
 
 # Jackery Home Assistant Integration
 
