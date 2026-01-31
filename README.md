@@ -1,4 +1,4 @@
-> While this custom integration currently works as of January 2026, I unfortunately have a full time job and can't respond to all issues. That being said, if you submit a reasonable pull request, I will review, respond, and merge it in if it looks good. Thank you for your understanding!
+> I have a full time job and can't respond to issues, but I'm open to contributions! If you submit a reasonable pull request, I will review, respond, test, and merge if it looks good. Thank you for understanding!
 
 # Jackery Home Assistant Integration
 
@@ -14,8 +14,6 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 - ⚡ **Power Monitoring**: Monitor input/output power in watts
 - ⏱️ **Time Tracking**: View time to full charge and remaining output time
 - 🔌 **Output Status**: Binary sensors for AC, DC car, and USB output status
-- 📊 **Real-time Updates**: Automatic polling every 60 seconds
-- 🔐 **Secure Authentication**: Uses your Jackery account credentials
 
 ## Supported Sensors
 
@@ -142,7 +140,6 @@ logger:
 
 - Home Assistant 2023.8.0 or newer
 - Python 3.10 or newer
-- Internet connection for device communication
 
 ## Dependencies
 
@@ -151,7 +148,7 @@ logger:
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+Pull Requests are encouraged and welcome! For major changes, please open an issue first to discuss what you would like to change.
 
 ## License
 
