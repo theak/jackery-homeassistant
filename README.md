@@ -4,16 +4,19 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![maintainer](https://img.shields.io/badge/maintainer-%40theak-blue.svg)](https://github.com/theak)
-[![version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/theak/jackery-homeassistant)
+[![version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/theak/jackery-homeassistant)
 
-Custom Home Assistant integration for monitoring Jackery portable power stations. This integration provides real-time sensor data for your Jackery devices including battery status, power output, temperature, and more.
+Custom Home Assistant integration for monitoring and controlling Jackery portable power stations. This integration provides real-time sensor data plus model-aware control entities for supported Jackery devices.
 
 ## Features
 
 - 🔋 **Battery Monitoring**: Track remaining battery percentage and temperature
 - ⚡ **Power Monitoring**: Monitor input/output power in watts
 - ⏱️ **Time Tracking**: View time to full charge and remaining output time
-- 🔌 **Output Status**: Binary sensors for AC, DC car, and USB output status
+- 🔌 **Output Control**: Switches for supported AC, DC, USB, and car outputs
+- ⚙️ **Device Controls**: Select and number entities for light mode, charge speed, battery protection, screen timeout, and more
+- 🧠 **Model-Aware Entities**: Only shows entities that the specific Jackery model actually reports
+- 📡 **MQTT Control Path**: Uses Jackery's device control channel for supported writable settings
 
 ## Supported Sensors
 
@@ -26,21 +29,26 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 | Output Power          | Current power output          | W        |
 | Input Power           | Current power input           | W        |
 | AC Input Power        | AC power input                | W        |
+| Car Input Power       | Car charging input            | W        |
 | Time to Full          | Estimated time to full charge | hours    |
 | Remaining Output Time | Estimated remaining runtime   | hours    |
 | AC Output Voltage     | AC output voltage             | V        |
+| AC Output Frequency   | AC output frequency           | Hz       |
+| Error Code            | Device error code             | n/a      |
 | Last Updated          | Timestamp of last data update | ISO 8601 |
 
-### Binary Sensors (ON/OFF)
+### Switches and Status
 
-| Sensor        | Description               |
-| ------------- | ------------------------- |
-| AC Output     | AC output status          |
-| DC Output     | DC output status          |
-| DC Car Output | DC car port output status |
-| USB Output    | USB output status         |
+Supported models expose different combinations of controllable entities. Examples include:
 
-**Note:** Different Jackery device models may report different combinations of DC output sensors. Early exploration suggests some models use a combined `odc` parameter while others use separate `odcc` and `odcu` parameters.
+| Entity Type | Examples |
+| ----------- | -------- |
+| Switches | AC Output, DC Output, USB Output, DC Car Output, Super Fast Charge, UPS Mode |
+| Selects | Light Mode, Charge Speed, Battery Protection |
+| Numbers | Auto Shutdown, Energy Saving, Screen Timeout |
+| Binary Sensors | Temperature Alarm, Power Alarm, Wireless Charging |
+
+**Note:** Different Jackery device models report different property sets. For example, some units expose a combined `odc` DC switch while others expose separate `odcc` and `odcu` switches for car and USB outputs. Unsupported controls are not created for devices that do not report those properties.
 
 ## Installation
 
@@ -49,7 +57,7 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 1. Make sure you have [HACS](https://hacs.xyz/) installed
 2. Add this repository as a custom repository in HACS
 3. Search for "Jackery" in the integrations section
-4. Install version `1.0.2` or newer and restart Home Assistant
+4. Install version `1.1.0` or newer and restart Home Assistant to load the integration code
 
 ### Option 2: Manual Installation
 
@@ -74,7 +82,7 @@ The integration will automatically discover your Jackery devices and create sens
 Once configured, you'll find your Jackery devices and their sensors in:
 
 - **Settings** → **Devices & Services** → **Entities**
-- Each device will have its own set of sensors
+- Each device will have its own set of supported sensors, switches, selects, and number entities
 
 You can use these sensors in:
 
@@ -101,7 +109,7 @@ automation:
   - alias: "Jackery AC Output On"
     trigger:
       platform: state
-      entity_id: binary_sensor.jackery_device_ac_output
+      entity_id: switch.jackery_device_ac_output
       to: "on"
     action:
       - service: notify.mobile_app
@@ -118,7 +126,7 @@ automation:
    - Ensure your account is active and not locked
 
 2. **HACS rejects version 1.0.1**
-   - Install version `1.0.2` or newer
+   - Install version `1.1.0` or newer
    - Version `1.0.1` was tagged before `hacs.json` was moved to the repository root, which newer HACS versions require
 
 3. **No Devices Found**
@@ -128,6 +136,10 @@ automation:
 4. **Sensors Not Updating**
    - Check the Home Assistant logs for errors
    - Verify your device has internet connectivity
+
+5. **Entities missing or extra entities are still shown after upgrading**
+   - Reload the Jackery config entry or restart Home Assistant after upgrading
+   - The integration creates entities based on the live property set reported by each device model
 
 ### Logs
 
@@ -149,6 +161,7 @@ logger:
 
 - `requests>=2.31.0`
 - `pycryptodomex>=3.19.0`
+- `socketry>=0.2.3`
 
 ## Contributing
 

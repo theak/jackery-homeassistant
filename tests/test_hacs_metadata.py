@@ -32,5 +32,5 @@ def test_hacs_manifest_declares_supported_home_assistant_version() -> None:
 def test_manifest_version_is_bumped_past_broken_release() -> None:
     manifest = _load_json(INTEGRATION_MANIFEST)
 
-    assert manifest["version"] == "1.0.2"
+    assert manifest["version"] == "1.1.0"
     assert manifest["homeassistant"] == "2023.8.0"

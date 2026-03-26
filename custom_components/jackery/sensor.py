@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+
 from homeassistant.components.sensor import (
     SensorEntity,
 )
@@ -15,6 +16,8 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import DOMAIN, SENSOR_DESCRIPTIONS, JackerySensorEntityDescription
+from .entity_helpers import JackeryCoordinatorEntity
+from .features import supported_keys_for_platform
 
 
 async def async_setup_entry(
@@ -32,14 +35,16 @@ async def async_setup_entry(
         device_id = device["devId"]
         if device_id in coordinators:
             coordinator = coordinators[device_id]
-            # Create entities for all sensor descriptions
+            supported_keys = set(supported_keys_for_platform(coordinator.data, "sensor"))
             for description in SENSOR_DESCRIPTIONS:
+                if description.key not in supported_keys:
+                    continue
                 entities.append(JackerySensor(coordinator, description, device))
 
     async_add_entities(entities)
 
 
-class JackerySensor(CoordinatorEntity, SensorEntity):
+class JackerySensor(JackeryCoordinatorEntity, SensorEntity):
     """Implementation of a Jackery sensor."""
 
     entity_description: JackerySensorEntityDescription
@@ -51,26 +56,13 @@ class JackerySensor(CoordinatorEntity, SensorEntity):
         device_info: dict,
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(coordinator)
+        super().__init__(coordinator, description.key, device_info)
         self.entity_description = description
-        self._device_id = device_info["devId"]
-
-        # Set a unique ID for this entity
-        self._attr_unique_id = f"{self._device_id}_{description.key}"
-
-        # Set the device info for this entity
-        # This groups all sensors under a single device in Home Assistant
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, self._device_id)},
-            "name": device_info.get("devName", f"Jackery Device {self._device_id}"),
-            "manufacturer": "Jackery",
-            "model": device_info.get("productType"),
-        }
 
     @property
     def native_value(self) -> str | int | float | datetime | None:
         """Return the state of the sensor."""
-        value = self.coordinator.data.get(self.entity_description.key)
+        value = self.property_value
         if value is None:
             return None
         if self.entity_description.value:
