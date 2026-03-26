@@ -4,7 +4,7 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![maintainer](https://img.shields.io/badge/maintainer-%40theak-blue.svg)](https://github.com/theak)
-[![version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/theak/jackery-homeassistant)
+[![version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/theak/jackery-homeassistant)
 
 Custom Home Assistant integration for monitoring Jackery portable power stations. This integration provides real-time sensor data for your Jackery devices including battery status, power output, temperature, and more.
 
@@ -49,7 +49,7 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 1. Make sure you have [HACS](https://hacs.xyz/) installed
 2. Add this repository as a custom repository in HACS
 3. Search for "Jackery" in the integrations section
-4. Click "Download" and restart Home Assistant
+4. Install version `1.0.2` or newer and restart Home Assistant
 
 ### Option 2: Manual Installation
 
@@ -117,11 +117,15 @@ automation:
    - Verify your Jackery account credentials
    - Ensure your account is active and not locked
 
-2. **No Devices Found**
+2. **HACS rejects version 1.0.1**
+   - Install version `1.0.2` or newer
+   - Version `1.0.1` was tagged before `hacs.json` was moved to the repository root, which newer HACS versions require
+
+3. **No Devices Found**
    - Make sure your Jackery device is connected to the internet
    - Verify the device is registered to your account
 
-3. **Sensors Not Updating**
+4. **Sensors Not Updating**
    - Check the Home Assistant logs for errors
    - Verify your device has internet connectivity
 
