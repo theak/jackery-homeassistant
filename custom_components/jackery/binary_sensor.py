@@ -16,6 +16,8 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import DOMAIN, BINARY_SENSOR_DESCRIPTIONS
+from .entity_helpers import JackeryCoordinatorEntity
+from .features import supported_keys_for_platform
 
 
 async def async_setup_entry(
@@ -33,14 +35,18 @@ async def async_setup_entry(
         device_id = device["devId"]
         if device_id in coordinators:
             coordinator = coordinators[device_id]
-            # Create entities for all binary sensor descriptions
+            supported_keys = set(
+                supported_keys_for_platform(coordinator.data, "binary_sensor")
+            )
             for description in BINARY_SENSOR_DESCRIPTIONS:
+                if description.key not in supported_keys:
+                    continue
                 entities.append(JackeryBinarySensor(coordinator, description, device))
 
     async_add_entities(entities)
 
 
-class JackeryBinarySensor(CoordinatorEntity, BinarySensorEntity):
+class JackeryBinarySensor(JackeryCoordinatorEntity, BinarySensorEntity):
     """Implementation of a Jackery binary sensor."""
 
     entity_description: BinarySensorEntityDescription
@@ -52,32 +58,13 @@ class JackeryBinarySensor(CoordinatorEntity, BinarySensorEntity):
         device_info: dict,
     ) -> None:
         """Initialize the binary sensor."""
-        super().__init__(coordinator)
+        super().__init__(coordinator, description.key, device_info)
         self.entity_description = description
-        self._device_id = device_info["devId"]
-
-        # Set a unique ID for this entity
-        self._attr_unique_id = f"{self._device_id}_{description.key}"
-
-        # Set the device info for this entity
-        # This groups all sensors under a single device in Home Assistant
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, self._device_id)},
-            "name": device_info.get("devName", f"Jackery Device {self._device_id}"),
-            "manufacturer": "Jackery",
-            "model": device_info.get("productType"),
-        }
 
     @property
     def is_on(self) -> bool | None:
-        """Return true if the binary sensor is on.
-        
-        Different Jackery models emit different DC output parameters:
-        - odc: DC Output (models with combined USB + Car toggle)
-        - odcc: DC Car Output (models with separate toggles)
-        - odcu: USB Output (models with separate toggles)
-        """
-        value = self.coordinator.data.get(self.entity_description.key)
+        """Return true if the binary sensor is on."""
+        value = self.property_value
         if value is None:
             return None
         return value == 1

@@ -7,13 +7,17 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntityDescription,
 )
+from homeassistant.components.number import NumberEntityDescription
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntityDescription,
     SensorStateClass,
 )
+from homeassistant.components.select import SelectEntityDescription
+from homeassistant.components.switch import SwitchDeviceClass, SwitchEntityDescription
 from homeassistant.const import (
     PERCENTAGE,
+    EntityCategory,
     UnitOfElectricPotential,
     UnitOfPower,
     UnitOfTemperature,
@@ -34,8 +38,16 @@ class JackerySensorEntityDescription(SensorEntityDescription):
     value: Callable[[any], any] | None = None
 
 
+@dataclass
+class JackerySelectEntityDescription(SelectEntityDescription):
+    """Describes a Jackery select entity."""
+
+
+# Shared configuration entity ranges.
+SETTING_MAX_VALUE = 999
+
+
 # Sensor descriptions
-# This defines all the sensors we'll create for each device.
 SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
     JackerySensorEntityDescription(
         key="rb",
@@ -74,6 +86,13 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
     ),
     JackerySensorEntityDescription(
+        key="cip",
+        name="Car Input Power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    JackerySensorEntityDescription(
         key="it",
         name="Time to Full",
         native_unit_of_measurement=UnitOfTime.HOURS,
@@ -98,42 +117,156 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         value=lambda value: value / 10.0,
     ),
     JackerySensorEntityDescription(
+        key="acohz",
+        name="AC Output Frequency",
+        native_unit_of_measurement="Hz",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:sine-wave",
+    ),
+    JackerySensorEntityDescription(
+        key="ec",
+        name="Error Code",
+        icon="mdi:alert-circle-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    JackerySensorEntityDescription(
         key="last_updated",
         name="Last Updated",
         device_class=SensorDeviceClass.TIMESTAMP,
         icon="mdi:clock",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
 
 # Binary sensor descriptions
-# These define all binary (ON/OFF) sensors for each device.
-# Note: Different device models may emit different parameters:
-# - odc: DC Output (for models with single DC toggle for USB + Car)
-# - odcc: DC Car Output (for models with separate DC Car toggle)
-# - odcu: USB Output (for models with separate USB toggle)
 BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
     BinarySensorEntityDescription(
+        key="ta",
+        name="Temperature Alarm",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:thermometer-alert",
+    ),
+    BinarySensorEntityDescription(
+        key="pal",
+        name="Power Alarm",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        icon="mdi:alert",
+    ),
+    BinarySensorEntityDescription(
+        key="wss",
+        name="Wireless Charging",
+        device_class=BinarySensorDeviceClass.POWER,
+        icon="mdi:charging-wireless",
+    ),
+)
+
+SWITCH_DESCRIPTIONS: tuple[SwitchEntityDescription, ...] = (
+    SwitchEntityDescription(
         key="oac",
         name="AC Output",
-        device_class=BinarySensorDeviceClass.POWER,
+        device_class=SwitchDeviceClass.SWITCH,
         icon="mdi:power-plug",
     ),
-    BinarySensorEntityDescription(
+    SwitchEntityDescription(
         key="odc",
         name="DC Output",
-        device_class=BinarySensorDeviceClass.POWER,
+        device_class=SwitchDeviceClass.SWITCH,
         icon="mdi:power",
     ),
-    BinarySensorEntityDescription(
-        key="odcc",
-        name="DC Car Output",
-        device_class=BinarySensorDeviceClass.POWER,
-        icon="mdi:car",
-    ),
-    BinarySensorEntityDescription(
+    SwitchEntityDescription(
         key="odcu",
         name="USB Output",
-        device_class=BinarySensorDeviceClass.POWER,
+        device_class=SwitchDeviceClass.SWITCH,
         icon="mdi:usb-port",
+    ),
+    SwitchEntityDescription(
+        key="odcc",
+        name="DC Car Output",
+        device_class=SwitchDeviceClass.SWITCH,
+        icon="mdi:car",
+    ),
+    SwitchEntityDescription(
+        key="iac",
+        name="AC Input",
+        device_class=SwitchDeviceClass.SWITCH,
+        icon="mdi:transmission-tower-import",
+    ),
+    SwitchEntityDescription(
+        key="idc",
+        name="DC Input",
+        device_class=SwitchDeviceClass.SWITCH,
+        icon="mdi:current-dc",
+    ),
+    SwitchEntityDescription(
+        key="sfc",
+        name="Super Fast Charge",
+        device_class=SwitchDeviceClass.SWITCH,
+        icon="mdi:lightning-bolt",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    SwitchEntityDescription(
+        key="ups",
+        name="UPS Mode",
+        device_class=SwitchDeviceClass.SWITCH,
+        icon="mdi:power-plug-battery",
+        entity_category=EntityCategory.CONFIG,
+    ),
+)
+
+SELECT_DESCRIPTIONS: tuple[JackerySelectEntityDescription, ...] = (
+    JackerySelectEntityDescription(
+        key="lm",
+        name="Light Mode",
+        options=["off", "low", "high", "sos"],
+        icon="mdi:lightbulb",
+    ),
+    JackerySelectEntityDescription(
+        key="cs",
+        name="Charge Speed",
+        options=["fast", "mute"],
+        icon="mdi:speedometer",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    JackerySelectEntityDescription(
+        key="lps",
+        name="Battery Protection",
+        options=["full", "eco"],
+        icon="mdi:battery-heart-variant",
+        entity_category=EntityCategory.CONFIG,
+    ),
+)
+
+NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
+    NumberEntityDescription(
+        key="ast",
+        name="Auto Shutdown",
+        icon="mdi:timer-off-outline",
+        mode="box",
+        native_min_value=0,
+        native_max_value=SETTING_MAX_VALUE,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key="pm",
+        name="Energy Saving",
+        icon="mdi:leaf",
+        mode="box",
+        native_min_value=0,
+        native_max_value=SETTING_MAX_VALUE,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key="sltb",
+        name="Screen Timeout",
+        icon="mdi:monitor-lock",
+        mode="box",
+        native_min_value=0,
+        native_max_value=SETTING_MAX_VALUE,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
     ),
 )

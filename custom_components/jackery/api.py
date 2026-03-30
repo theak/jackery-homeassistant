@@ -1,5 +1,6 @@
 """API client for Jackery cloud services."""
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -34,6 +35,7 @@ class JackeryAPI:
         self._token_expiry_time: float = (
             0  # We will assume a long expiry for simplicity
         )
+        self._command_lock = asyncio.Lock()
 
     def _name_uuid_from_bytes_java(self, data: bytes) -> str:
         """Generate a version 3 UUID using an MD5 hash."""
@@ -195,3 +197,22 @@ class JackeryAPI:
     def get_device_detail(self, device_id: str) -> dict:
         """Get detailed information for a specified device."""
         return self._get_request("/v1/device/property", params={"deviceId": device_id})
+
+    async def async_set_property(
+        self, device_id: str, property_key: str, value: str | int
+    ) -> dict | None:
+        """Set a device property via Jackery's MQTT control channel."""
+        from socketry import Client
+
+        async with self._command_lock:
+            client = await Client.login(self.account, self.password)
+            devices = await client.fetch_devices()
+            target = next(
+                (device for device in devices if str(device.get("devId")) == str(device_id)),
+                None,
+            )
+            if target is None:
+                raise ValueError(f"Jackery device {device_id} was not found for this account.")
+
+            device = client.device(str(target["devSn"]))
+            return await device.set_property(property_key, value, wait=True)
