@@ -17,14 +17,20 @@ TEST_PACKAGE = "jackery_cleanup_test"
 _MISSING = object()
 
 
-def load_module(module_name: str, path: Path, *, package: bool = False):
+def load_module(
+    module_name: str,
+    path: Path,
+    stubbed_modules: dict[str, object],
+    *,
+    package: bool = False,
+):
     """Load a module directly from the repository."""
     kwargs = {}
     if package:
         kwargs["submodule_search_locations"] = [str(path.parent)]
     spec = importlib.util.spec_from_file_location(module_name, path, **kwargs)
     module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
+    _install_stub_module(stubbed_modules, module_name, module)
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
@@ -49,7 +55,7 @@ def _install_stub_module(
     sys.modules[module_name] = module
 
 
-def restore_dependency_stubs(stubbed_modules: dict[str, object]) -> None:
+def restore_stubbed_modules(stubbed_modules: dict[str, object]) -> None:
     """Restore sys.modules entries replaced while loading the test targets."""
     for module_name, previous in reversed(list(stubbed_modules.items())):
         if previous is _MISSING:
@@ -58,10 +64,8 @@ def restore_dependency_stubs(stubbed_modules: dict[str, object]) -> None:
             sys.modules[module_name] = previous
 
 
-def install_dependency_stubs() -> dict[str, object]:
+def install_dependency_stubs(stubbed_modules: dict[str, object]) -> None:
     """Install minimal third-party and Home Assistant stubs."""
-    stubbed_modules: dict[str, object] = {}
-
     if not _module_available("requests"):
         requests_mod = types.ModuleType("requests")
 
@@ -178,28 +182,41 @@ def install_dependency_stubs() -> dict[str, object]:
         )
         _install_stub_module(stubbed_modules, "homeassistant.util.dt", dt_mod)
 
-    return stubbed_modules
-
-
-def install_package_stubs() -> None:
+def install_package_stubs(stubbed_modules: dict[str, object]) -> None:
     """Install a throwaway package for loading the integration package."""
     package_mod = types.ModuleType(TEST_PACKAGE)
     package_mod.__path__ = [str(PACKAGE_ROOT)]
-    sys.modules[TEST_PACKAGE] = package_mod
+    _install_stub_module(stubbed_modules, TEST_PACKAGE, package_mod)
 
     const_mod = types.ModuleType(f"{TEST_PACKAGE}.const")
     const_mod.DOMAIN = "jackery"
     const_mod.POLLING_INTERVAL_SEC = 60
-    sys.modules[f"{TEST_PACKAGE}.const"] = const_mod
+    _install_stub_module(stubbed_modules, f"{TEST_PACKAGE}.const", const_mod)
 
 
-dependency_stubs = install_dependency_stubs()
-install_package_stubs()
+dependency_stubs: dict[str, object] = {}
+test_package_modules: dict[str, object] = {}
+install_dependency_stubs(dependency_stubs)
+install_package_stubs(test_package_modules)
 try:
-    api = load_module(f"{TEST_PACKAGE}.api", PACKAGE_ROOT / "api.py")
-    integration = load_module(TEST_PACKAGE, PACKAGE_ROOT / "__init__.py", package=True)
+    api = load_module(
+        f"{TEST_PACKAGE}.api",
+        PACKAGE_ROOT / "api.py",
+        test_package_modules,
+    )
+    integration = load_module(
+        TEST_PACKAGE,
+        PACKAGE_ROOT / "__init__.py",
+        test_package_modules,
+        package=True,
+    )
 finally:
-    restore_dependency_stubs(dependency_stubs)
+    restore_stubbed_modules(dependency_stubs)
+
+
+def tearDownModule() -> None:
+    """Restore sys.modules entries replaced by test-only stubs."""
+    restore_stubbed_modules(test_package_modules)
 
 
 class ControlClientCleanupTests(unittest.IsolatedAsyncioTestCase):
