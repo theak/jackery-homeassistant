@@ -18,10 +18,20 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve dispatch tag
+        if: github.event_name == 'workflow_dispatch'
+        id: resolve_tag_dispatch
+        run: echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pushed tag
+        if: github.event_name == 'push'
+        id: resolve_tag_push
+        run: echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
       - name: Skip non-semver tags
         id: semver
         env:
-          TAG: ${{ inputs.tag || github.ref_name }}
+          TAG: ${{ steps.resolve_tag_dispatch.outputs.tag || steps.resolve_tag_push.outputs.tag }}
         run: |
           if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "valid=true" >> "$GITHUB_OUTPUT"
@@ -34,7 +44,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          TAG: ${{ inputs.tag || github.ref_name }}
+          TAG: ${{ steps.resolve_tag_dispatch.outputs.tag || steps.resolve_tag_push.outputs.tag }}
         run: |
           if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
             exit 0
