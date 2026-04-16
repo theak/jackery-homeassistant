@@ -214,8 +214,16 @@ class JackeryAPI:
 
             if socketry is None:
                 raise RuntimeError("socketry is not installed")
-            client = await socketry.Client.login(self.account, self.password)
-            await client.fetch_devices()
+            client = None
+            try:
+                client = await socketry.Client.login(self.account, self.password)
+                await client.fetch_devices()
+            except asyncio.CancelledError:
+                await self._async_close_control_client(client)
+                raise
+            except Exception:
+                await self._async_close_control_client(client)
+                raise
             self._control_client = client
             return client
 
@@ -286,6 +294,7 @@ class JackeryAPI:
                     KeyError,
                 ):
                     if attempt == 1:
+                        await self._async_reset_control_client(client)
                         raise
                     await self._async_reset_control_client(client)
                     client = await self._async_get_control_client()

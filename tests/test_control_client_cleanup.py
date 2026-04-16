@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import sys
 import types
@@ -263,6 +264,111 @@ class ControlClientCleanupTests(unittest.IsolatedAsyncioTestCase):
         recovered_client.stop.assert_not_awaited()
         recovered_device.set_property.assert_awaited_once_with("ac", 1, wait=True)
         self.assertIs(jackery_api._control_client, recovered_client)
+
+    async def test_get_control_client_closes_uncached_client_when_fetch_fails(self) -> None:
+        """A fetch failure should close the new control client and avoid caching it."""
+        socketry_error = type("SocketryError", (Exception,), {})
+        failed_client = types.SimpleNamespace(
+            fetch_devices=AsyncMock(side_effect=socketry_error("fetch failed")),
+            stop=AsyncMock(),
+        )
+
+        api.socketry = types.SimpleNamespace(
+            Client=types.SimpleNamespace(login=AsyncMock(return_value=failed_client))
+        )
+        jackery_api = api.JackeryAPI("user@example.com", "password")
+
+        with self.assertRaises(socketry_error):
+            await jackery_api._async_get_control_client()
+
+        api.socketry.Client.login.assert_awaited_once_with(
+            "user@example.com", "password"
+        )
+        failed_client.fetch_devices.assert_awaited_once()
+        failed_client.stop.assert_awaited_once()
+        self.assertIsNone(jackery_api._control_client)
+
+    async def test_get_control_client_closes_uncached_client_when_fetch_is_cancelled(
+        self,
+    ) -> None:
+        """Cancellation during device fetch should still close the new client."""
+        failed_client = types.SimpleNamespace(
+            fetch_devices=AsyncMock(side_effect=asyncio.CancelledError()),
+            stop=AsyncMock(),
+        )
+
+        api.socketry = types.SimpleNamespace(
+            Client=types.SimpleNamespace(login=AsyncMock(return_value=failed_client))
+        )
+        jackery_api = api.JackeryAPI("user@example.com", "password")
+
+        with self.assertRaises(asyncio.CancelledError):
+            await jackery_api._async_get_control_client()
+
+        api.socketry.Client.login.assert_awaited_once_with(
+            "user@example.com", "password"
+        )
+        failed_client.fetch_devices.assert_awaited_once()
+        failed_client.stop.assert_awaited_once()
+        self.assertIsNone(jackery_api._control_client)
+
+    async def test_retry_resets_cached_control_client_on_final_failure(self) -> None:
+        """Final control-write failure should close and clear the cached client."""
+        auth_error = type("AuthenticationError", (Exception,), {})
+        mqtt_error = type("MqttError", (Exception,), {})
+        socketry_error = type("SocketryError", (Exception,), {})
+
+        first_device = types.SimpleNamespace(
+            set_property=AsyncMock(side_effect=auth_error("stale session"))
+        )
+        second_device = types.SimpleNamespace(
+            set_property=AsyncMock(side_effect=auth_error("still stale"))
+        )
+
+        first_client = types.SimpleNamespace(
+            fetch_devices=AsyncMock(),
+            devices=[{"devId": "device-1", "devSn": "serial-1"}],
+            device=lambda serial: first_device,
+            stop=AsyncMock(),
+        )
+        second_client = types.SimpleNamespace(
+            fetch_devices=AsyncMock(),
+            devices=[{"devId": "device-1", "devSn": "serial-1"}],
+            device=lambda serial: second_device,
+            stop=AsyncMock(),
+        )
+
+        api.socketry = types.SimpleNamespace(
+            AuthenticationError=auth_error,
+            MqttError=mqtt_error,
+            SocketryError=socketry_error,
+            Client=types.SimpleNamespace(
+                login=AsyncMock(side_effect=[first_client, second_client])
+            ),
+        )
+        jackery_api = api.JackeryAPI("user@example.com", "password")
+
+        with self.assertRaises(auth_error):
+            await jackery_api.async_set_device_property(
+                "device-1",
+                "serial-1",
+                "ac",
+                1,
+            )
+
+        api.socketry.Client.login.assert_has_awaits(
+            [
+                unittest.mock.call("user@example.com", "password"),
+                unittest.mock.call("user@example.com", "password"),
+            ]
+        )
+        first_client.fetch_devices.assert_awaited_once()
+        second_client.fetch_devices.assert_awaited_once()
+        first_client.stop.assert_awaited_once()
+        second_client.stop.assert_awaited_once()
+        first_device.set_property.assert_awaited_once_with("ac", 1, wait=True)
+        second_device.set_property.assert_awaited_once_with("ac", 1, wait=True)
+        self.assertIsNone(jackery_api._control_client)
 
     async def test_async_close_stops_cached_control_client(self) -> None:
         """Closing the API should close and clear the cached control client."""
