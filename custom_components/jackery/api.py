@@ -1,5 +1,6 @@
 """API client for Jackery cloud services."""
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -11,6 +12,11 @@ import requests
 from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Util.Padding import pad
+
+try:
+    import socketry
+except ImportError:  # pragma: no cover - handled by manifest dependency in production
+    socketry = None
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +40,9 @@ class JackeryAPI:
         self._token_expiry_time: float = (
             0  # We will assume a long expiry for simplicity
         )
+        self._control_client = None
+        self._control_client_lock = asyncio.Lock()
+        self._control_write_lock = asyncio.Lock()
 
     def _name_uuid_from_bytes_java(self, data: bytes) -> str:
         """Generate a version 3 UUID using an MD5 hash."""
@@ -195,3 +204,60 @@ class JackeryAPI:
     def get_device_detail(self, device_id: str) -> dict:
         """Get detailed information for a specified device."""
         return self._get_request("/v1/device/property", params={"deviceId": device_id})
+
+    async def _async_get_control_client(self):
+        """Get an authenticated Socketry client for device control."""
+        async with self._control_client_lock:
+            if self._control_client is not None:
+                return self._control_client
+
+            if socketry is None:
+                raise RuntimeError("socketry is not installed")
+            client = await socketry.Client.login(self.account, self.password)
+            await client.fetch_devices()
+            self._control_client = client
+            return client
+
+    async def async_set_device_property(
+        self,
+        device_id: str,
+        device_sn: str,
+        property_slug: str,
+        value: str | int,
+    ) -> None:
+        """Set a device property through Jackery's MQTT control channel."""
+        if socketry is None:
+            raise RuntimeError("socketry is not installed")
+
+        async with self._control_write_lock:
+            client = await self._async_get_control_client()
+
+            for attempt in range(2):
+                try:
+                    device = self._resolve_control_device(client, device_id, device_sn)
+                    await device.set_property(property_slug, value, wait=True)
+                    return
+                except (
+                    socketry.AuthenticationError,
+                    socketry.MqttError,
+                    socketry.SocketryError,
+                    KeyError,
+                ):
+                    if attempt == 1:
+                        raise
+                    self._control_client = None
+                    client = await self._async_get_control_client()
+
+    @staticmethod
+    def _resolve_control_device(client, device_id: str, device_sn: str):
+        """Resolve a controllable device from the cached Socketry device list."""
+        for device in client.devices:
+            if str(device.get("devId", "")) == str(device_id):
+                return client.device(str(device["devSn"]))
+            if device_sn and str(device.get("devSn", "")) == str(device_sn):
+                return client.device(str(device["devSn"]))
+
+        raise KeyError(
+            f"Unable to resolve Jackery device for control (device_id={device_id}, "
+            f"device_sn={device_sn})."
+        )

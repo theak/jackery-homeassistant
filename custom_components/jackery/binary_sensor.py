@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import DOMAIN, BINARY_SENSOR_DESCRIPTIONS
+from .protocol import is_supported_property
 
 
 async def async_setup_entry(
@@ -35,7 +36,10 @@ async def async_setup_entry(
             coordinator = coordinators[device_id]
             # Create entities for all binary sensor descriptions
             for description in BINARY_SENSOR_DESCRIPTIONS:
-                entities.append(JackeryBinarySensor(coordinator, description, device))
+                if is_supported_property(coordinator.data, description.key):
+                    entities.append(
+                        JackeryBinarySensor(coordinator, description, device)
+                    )
 
     async_add_entities(entities)
 

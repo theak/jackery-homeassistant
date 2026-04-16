@@ -18,7 +18,13 @@ from homeassistant.util import dt as dt_util
 from .api import JackeryAPI, JackeryAuthenticationError
 from .const import DOMAIN, POLLING_INTERVAL_SEC
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.SWITCH,
+    Platform.SELECT,
+    Platform.NUMBER,
+]
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -83,6 +89,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinators[device_id] = coordinator
 
     hass.data[DOMAIN][entry.entry_id] = {
+        "api": api,
         "coordinators": coordinators,
         "devices": devices,
     }

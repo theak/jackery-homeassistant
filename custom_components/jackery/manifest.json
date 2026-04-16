@@ -5,7 +5,11 @@
     "documentation": "https://github.com/usersaynoso/jackery-homeassistant/blob/main/README.md",
     "issue_tracker": "https://github.com/usersaynoso/jackery-homeassistant/issues",
     "codeowners": ["@usersaynoso"],
-    "requirements": ["requests>=2.31.0", "pycryptodomex>=3.19.0"],
+    "requirements": [
+        "requests>=2.31.0",
+        "pycryptodomex>=3.19.0",
+        "socketry>=0.2.4"
+    ],
     "icon": "icon.png",
     "iot_class": "cloud_polling",
     "config_flow": true
