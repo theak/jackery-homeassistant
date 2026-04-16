@@ -1,12 +1,12 @@
 > I have a full time job and can't respond to issues, but I'm open to contributions! If you submit a reasonable pull request, I will review, respond, test, and merge if it looks good. Thank you for understanding!
 
-> **Known issue:** This integration currently [does not support accounts registered in the EU](https://github.com/theak/jackery-homeassistant/issues/2).
+> **Known issue:** This integration currently does not support accounts registered in the EU.
 
 # Jackery Home Assistant Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
-[![maintainer](https://img.shields.io/badge/maintainer-%40theak-blue.svg)](https://github.com/theak)
-[![version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/theak/jackery-homeassistant)
+[![maintainer](https://img.shields.io/badge/maintainer-%40usersaynoso-blue.svg)](https://github.com/usersaynoso)
+[![version](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/usersaynoso/jackery-homeassistant)
 
 Custom Home Assistant integration for monitoring Jackery portable power stations. This integration provides real-time sensor data for your Jackery devices including battery status, power output, temperature, and more.
 
@@ -52,6 +52,8 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 2. Add this repository as a custom repository in HACS
 3. Search for "Jackery" in the integrations section
 4. Click "Download" and restart Home Assistant
+
+HACS installs published version tags from GitHub releases. This repository now publishes a matching GitHub release automatically whenever a semantic version tag is pushed.
 
 ### Option 2: Manual Installation
 
@@ -151,6 +153,8 @@ logger:
 ## Contributing
 
 Pull Requests are encouraged and welcome! For major changes, please open an issue first to discuss what you would like to change.
+
+When changing `custom_components/jackery/manifest.json` version metadata, push the matching semantic version tag so HACS can install that version directly.
 
 ## License
 
