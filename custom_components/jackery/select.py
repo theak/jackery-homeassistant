@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -122,6 +124,8 @@ class JackerySelectEntity(CoordinatorEntity, SelectEntity):
                 self._slug,
                 option,
             )
+        except asyncio.CancelledError:
+            raise
         except Exception as err:
             raise HomeAssistantError(
                 f"Failed to set {self.entity_description.name}: {err}"

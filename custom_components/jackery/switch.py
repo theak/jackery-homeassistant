@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -77,7 +79,7 @@ class JackerySwitchEntity(CoordinatorEntity, SwitchEntity):
         self._slug = control_spec(description.key).slug
         self._device_id = device_info["devId"]
         self._device_sn = device_info["devSn"]
-        self._attr_unique_id = f"{self._device_id}_{description.key}"
+        self._attr_unique_id = f"{self._device_id}_switch_{description.key}"
         self._attr_icon = description.icon
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._device_id)},
@@ -116,6 +118,8 @@ class JackerySwitchEntity(CoordinatorEntity, SwitchEntity):
                 self._slug,
                 value,
             )
+        except asyncio.CancelledError:
+            raise
         except Exception as err:
             raise HomeAssistantError(
                 f"Failed to set {self.entity_description.name}: {err}"

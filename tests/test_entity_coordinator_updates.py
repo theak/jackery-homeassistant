@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import sys
 import types
@@ -208,6 +209,8 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
             device_info=self.device_info,
         )
 
+        self.assertEqual(entity._attr_unique_id, "device-1_switch_oac")
+
         await entity.async_turn_on()
 
         api.async_set_device_property.assert_awaited_once_with(
@@ -276,6 +279,63 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coordinator.refresh_requests, 1)
         self.assertEqual(entity.write_count, 0)
         self.assertEqual(entity.native_value, 15.0)
+
+    async def test_switch_does_not_wrap_cancellation(self) -> None:
+        """Switch writes should propagate cancellation errors unchanged."""
+        coordinator = TrackingCoordinator({"oac": 0})
+        api = types.SimpleNamespace(
+            async_set_device_property=AsyncMock(side_effect=asyncio.CancelledError())
+        )
+        entity = switch.JackerySwitchEntity(
+            api=api,
+            coordinator=coordinator,
+            description=switch.SWITCH_DESCRIPTIONS["oac"],
+            device_info=self.device_info,
+        )
+
+        with self.assertRaises(asyncio.CancelledError):
+            await entity.async_turn_on()
+
+        self.assertEqual(coordinator.updated_data_calls, [])
+        self.assertEqual(coordinator.refresh_requests, 0)
+
+    async def test_select_does_not_wrap_cancellation(self) -> None:
+        """Select writes should propagate cancellation errors unchanged."""
+        coordinator = TrackingCoordinator({"lm": 0})
+        api = types.SimpleNamespace(
+            async_set_device_property=AsyncMock(side_effect=asyncio.CancelledError())
+        )
+        entity = select.JackerySelectEntity(
+            api=api,
+            coordinator=coordinator,
+            description=select.SELECT_DESCRIPTIONS["lm"],
+            device_info=self.device_info,
+        )
+
+        with self.assertRaises(asyncio.CancelledError):
+            await entity.async_select_option("high")
+
+        self.assertEqual(coordinator.updated_data_calls, [])
+        self.assertEqual(coordinator.refresh_requests, 0)
+
+    async def test_number_does_not_wrap_cancellation(self) -> None:
+        """Number writes should propagate cancellation errors unchanged."""
+        coordinator = TrackingCoordinator({"pm": 20})
+        api = types.SimpleNamespace(
+            async_set_device_property=AsyncMock(side_effect=asyncio.CancelledError())
+        )
+        entity = number.JackeryNumberEntity(
+            api=api,
+            coordinator=coordinator,
+            description=number.NUMBER_DESCRIPTIONS["pm"],
+            device_info=self.device_info,
+        )
+
+        with self.assertRaises(asyncio.CancelledError):
+            await entity.async_set_native_value(15)
+
+        self.assertEqual(coordinator.updated_data_calls, [])
+        self.assertEqual(coordinator.refresh_requests, 0)
 
 
 if __name__ == "__main__":
