@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing semantic version tag to publish or verify
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -15,7 +21,7 @@ jobs:
       - name: Skip non-semver tags
         id: semver
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "valid=true" >> "$GITHUB_OUTPUT"
@@ -28,7 +34,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
             exit 0
