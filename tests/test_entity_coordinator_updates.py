@@ -14,20 +14,53 @@ from unittest.mock import AsyncMock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = REPO_ROOT / "custom_components" / "jackery"
+TEST_PACKAGE = "jackery_entity_updates_test"
+_MISSING = object()
 
 
-def load_module(module_name: str, path: Path):
+def load_module(module_name: str, path: Path, stubbed_modules: dict[str, object]):
     """Load a module directly from the repository."""
     spec = importlib.util.spec_from_file_location(module_name, path)
     module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
+    _install_stub_module(stubbed_modules, module_name, module)
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
 
 
-def install_homeassistant_stubs() -> None:
+def _module_available(module_name: str) -> bool:
+    """Return True when a real module is already loaded or importable."""
+    if module_name in sys.modules:
+        return True
+
+    try:
+        return importlib.util.find_spec(module_name) is not None
+    except (ImportError, ModuleNotFoundError, ValueError):
+        return False
+
+
+def _install_stub_module(
+    stubbed_modules: dict[str, object], module_name: str, module: types.ModuleType
+) -> None:
+    """Install a module and remember the previous sys.modules entry."""
+    stubbed_modules.setdefault(module_name, sys.modules.get(module_name, _MISSING))
+    sys.modules[module_name] = module
+
+
+def restore_stubbed_modules(stubbed_modules: dict[str, object]) -> None:
+    """Restore any sys.modules entries replaced for this test module."""
+    for module_name, previous in reversed(list(stubbed_modules.items())):
+        if previous is _MISSING:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous
+
+
+def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     """Install the minimal Home Assistant surface needed for unit tests."""
+    if _module_available("homeassistant"):
+        return
+
     homeassistant = types.ModuleType("homeassistant")
     homeassistant.__path__ = []
     components = types.ModuleType("homeassistant.components")
@@ -123,52 +156,88 @@ def install_homeassistant_stubs() -> None:
     homeassistant.components = components
     homeassistant.helpers = helpers
 
-    sys.modules["homeassistant"] = homeassistant
-    sys.modules["homeassistant.components"] = components
-    sys.modules["homeassistant.components.switch"] = switch_mod
-    sys.modules["homeassistant.components.select"] = select_mod
-    sys.modules["homeassistant.components.number"] = number_mod
-    sys.modules["homeassistant.config_entries"] = config_entries_mod
-    sys.modules["homeassistant.const"] = const_mod
-    sys.modules["homeassistant.core"] = core_mod
-    sys.modules["homeassistant.exceptions"] = exceptions_mod
-    sys.modules["homeassistant.helpers"] = helpers
-    sys.modules["homeassistant.helpers.entity"] = entity_mod
-    sys.modules["homeassistant.helpers.entity_platform"] = entity_platform_mod
-    sys.modules["homeassistant.helpers.update_coordinator"] = (
-        update_coordinator_mod
+    _install_stub_module(stubbed_modules, "homeassistant", homeassistant)
+    _install_stub_module(stubbed_modules, "homeassistant.components", components)
+    _install_stub_module(
+        stubbed_modules, "homeassistant.components.switch", switch_mod
+    )
+    _install_stub_module(
+        stubbed_modules, "homeassistant.components.select", select_mod
+    )
+    _install_stub_module(
+        stubbed_modules, "homeassistant.components.number", number_mod
+    )
+    _install_stub_module(
+        stubbed_modules, "homeassistant.config_entries", config_entries_mod
+    )
+    _install_stub_module(stubbed_modules, "homeassistant.const", const_mod)
+    _install_stub_module(stubbed_modules, "homeassistant.core", core_mod)
+    _install_stub_module(
+        stubbed_modules, "homeassistant.exceptions", exceptions_mod
+    )
+    _install_stub_module(stubbed_modules, "homeassistant.helpers", helpers)
+    _install_stub_module(
+        stubbed_modules, "homeassistant.helpers.entity", entity_mod
+    )
+    _install_stub_module(
+        stubbed_modules,
+        "homeassistant.helpers.entity_platform",
+        entity_platform_mod,
+    )
+    _install_stub_module(
+        stubbed_modules,
+        "homeassistant.helpers.update_coordinator",
+        update_coordinator_mod,
     )
 
 
-def install_package_stubs() -> None:
+def install_package_stubs(stubbed_modules: dict[str, object]) -> None:
     """Install the minimal Jackery package structure for relative imports."""
-    custom_components = types.ModuleType("custom_components")
-    custom_components.__path__ = [str(REPO_ROOT / "custom_components")]
-    jackery = types.ModuleType("custom_components.jackery")
-    jackery.__path__ = [str(PACKAGE_ROOT)]
+    package_mod = types.ModuleType(TEST_PACKAGE)
+    package_mod.__path__ = [str(PACKAGE_ROOT)]
 
-    api_mod = types.ModuleType("custom_components.jackery.api")
+    api_mod = types.ModuleType(f"{TEST_PACKAGE}.api")
 
     class JackeryAPI:
         """Stub Jackery API type."""
 
-    const_mod = types.ModuleType("custom_components.jackery.const")
+    const_mod = types.ModuleType(f"{TEST_PACKAGE}.const")
     const_mod.DOMAIN = "jackery"
 
     api_mod.JackeryAPI = JackeryAPI
 
-    sys.modules["custom_components"] = custom_components
-    sys.modules["custom_components.jackery"] = jackery
-    sys.modules["custom_components.jackery.api"] = api_mod
-    sys.modules["custom_components.jackery.const"] = const_mod
+    _install_stub_module(stubbed_modules, TEST_PACKAGE, package_mod)
+    _install_stub_module(stubbed_modules, f"{TEST_PACKAGE}.api", api_mod)
+    _install_stub_module(stubbed_modules, f"{TEST_PACKAGE}.const", const_mod)
+
+stubbed_modules: dict[str, object] = {}
+install_homeassistant_stubs(stubbed_modules)
+install_package_stubs(stubbed_modules)
+load_module(
+    f"{TEST_PACKAGE}.protocol",
+    PACKAGE_ROOT / "protocol.py",
+    stubbed_modules,
+)
+switch = load_module(
+    f"{TEST_PACKAGE}.switch",
+    PACKAGE_ROOT / "switch.py",
+    stubbed_modules,
+)
+select = load_module(
+    f"{TEST_PACKAGE}.select",
+    PACKAGE_ROOT / "select.py",
+    stubbed_modules,
+)
+number = load_module(
+    f"{TEST_PACKAGE}.number",
+    PACKAGE_ROOT / "number.py",
+    stubbed_modules,
+)
 
 
-install_homeassistant_stubs()
-install_package_stubs()
-load_module("custom_components.jackery.protocol", PACKAGE_ROOT / "protocol.py")
-switch = load_module("custom_components.jackery.switch", PACKAGE_ROOT / "switch.py")
-select = load_module("custom_components.jackery.select", PACKAGE_ROOT / "select.py")
-number = load_module("custom_components.jackery.number", PACKAGE_ROOT / "number.py")
+def tearDownModule() -> None:
+    """Restore sys.modules entries replaced by test-only stubs."""
+    restore_stubbed_modules(stubbed_modules)
 
 
 class TrackingCoordinator:

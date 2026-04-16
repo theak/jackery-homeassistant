@@ -313,6 +313,25 @@ class ControlClientCleanupTests(unittest.IsolatedAsyncioTestCase):
         api_client.async_close.assert_awaited_once()
         self.assertNotIn("entry-1", hass.data["jackery"])
 
+    async def test_unload_entry_is_idempotent_when_entry_data_is_missing(self) -> None:
+        """Config entry unload should tolerate a missing cached entry."""
+        entry = types.SimpleNamespace(entry_id="entry-1")
+        hass = types.SimpleNamespace(
+            data={"jackery": {}},
+            config_entries=types.SimpleNamespace(
+                async_unload_platforms=AsyncMock(return_value=True)
+            ),
+        )
+
+        unload_ok = await integration.async_unload_entry(hass, entry)
+
+        self.assertTrue(unload_ok)
+        hass.config_entries.async_unload_platforms.assert_awaited_once_with(
+            entry,
+            integration.PLATFORMS,
+        )
+        self.assertEqual(hass.data["jackery"], {})
+
 
 if __name__ == "__main__":
     unittest.main()
