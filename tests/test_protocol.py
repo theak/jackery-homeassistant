@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import types
 import unittest
 from pathlib import Path
 
@@ -15,11 +16,19 @@ PROTOCOL_PATH = REPO_ROOT / "custom_components" / "jackery" / "protocol.py"
 def load_protocol_module():
     """Load the protocol helper without importing Home Assistant modules."""
     spec = importlib.util.spec_from_file_location("jackery_protocol", PROTOCOL_PATH)
+    assert spec is not None
     module = importlib.util.module_from_spec(spec)
+    previous_module = sys.modules.get(spec.name)
     sys.modules[spec.name] = module
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
+    try:
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if previous_module is None:
+            sys.modules.pop(spec.name, None)
+        else:
+            sys.modules[spec.name] = previous_module
 
 
 protocol = load_protocol_module()
@@ -27,6 +36,26 @@ protocol = load_protocol_module()
 
 class ProtocolTests(unittest.TestCase):
     """Validate control metadata and capability detection."""
+
+    def test_load_protocol_module_cleans_up_temporary_sys_modules_entry(self) -> None:
+        """Loading the helper should not leak its temporary import alias."""
+        sys.modules.pop("jackery_protocol", None)
+
+        module = load_protocol_module()
+
+        self.assertEqual(module.__name__, "jackery_protocol")
+        self.assertNotIn("jackery_protocol", sys.modules)
+
+    def test_load_protocol_module_restores_previous_sys_modules_entry(self) -> None:
+        """Existing module entries should be restored after loading."""
+        existing_module = types.ModuleType("jackery_protocol")
+        sys.modules["jackery_protocol"] = existing_module
+        self.addCleanup(sys.modules.pop, "jackery_protocol", None)
+
+        module = load_protocol_module()
+
+        self.assertEqual(module.__name__, "jackery_protocol")
+        self.assertIs(sys.modules["jackery_protocol"], existing_module)
 
     def test_control_specs_match_known_jackery_write_slugs(self) -> None:
         """Confirmed writable controls should preserve the correct API slug."""
