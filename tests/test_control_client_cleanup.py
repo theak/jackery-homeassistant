@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = REPO_ROOT / "custom_components" / "jackery"
 TEST_PACKAGE = "jackery_cleanup_test"
+_MISSING = object()
 
 
 def load_module(module_name: str, path: Path, *, package: bool = False):
@@ -28,105 +29,155 @@ def load_module(module_name: str, path: Path, *, package: bool = False):
     return module
 
 
-def install_dependency_stubs() -> None:
+def _module_available(module_name: str) -> bool:
+    """Return True when a real module is already loaded or importable."""
+    if module_name in sys.modules:
+        return True
+
+    try:
+        return importlib.util.find_spec(module_name) is not None
+    except (ImportError, ModuleNotFoundError, ValueError):
+        return False
+
+
+def _install_stub_module(
+    stubbed_modules: dict[str, object], module_name: str, module: types.ModuleType
+) -> None:
+    """Install a stub module and remember any previous sys.modules entry."""
+    stubbed_modules.setdefault(module_name, sys.modules.get(module_name, _MISSING))
+    sys.modules[module_name] = module
+
+
+def restore_dependency_stubs(stubbed_modules: dict[str, object]) -> None:
+    """Restore sys.modules entries replaced while loading the test targets."""
+    for module_name, previous in reversed(list(stubbed_modules.items())):
+        if previous is _MISSING:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous
+
+
+def install_dependency_stubs() -> dict[str, object]:
     """Install minimal third-party and Home Assistant stubs."""
-    requests_mod = types.ModuleType("requests")
+    stubbed_modules: dict[str, object] = {}
 
-    class RequestException(Exception):
-        """Stub requests exception."""
+    if not _module_available("requests"):
+        requests_mod = types.ModuleType("requests")
 
-    requests_mod.RequestException = RequestException
-    sys.modules["requests"] = requests_mod
+        class RequestException(Exception):
+            """Stub requests exception."""
 
-    cryptodome = types.ModuleType("Cryptodome")
-    cryptodome.__path__ = []
-    cipher_mod = types.ModuleType("Cryptodome.Cipher")
-    public_key_mod = types.ModuleType("Cryptodome.PublicKey")
-    util_mod = types.ModuleType("Cryptodome.Util")
-    util_mod.__path__ = []
-    padding_mod = types.ModuleType("Cryptodome.Util.Padding")
+        requests_mod.RequestException = RequestException
+        _install_stub_module(stubbed_modules, "requests", requests_mod)
 
-    cipher_mod.AES = types.SimpleNamespace(MODE_ECB=1, new=lambda *args, **kwargs: None)
-    cipher_mod.PKCS1_v1_5 = types.SimpleNamespace(new=lambda *args, **kwargs: None)
-    public_key_mod.RSA = types.SimpleNamespace(importKey=lambda *args, **kwargs: None)
-    padding_mod.pad = lambda data, block_size: data
+    if not _module_available("Cryptodome"):
+        cryptodome = types.ModuleType("Cryptodome")
+        cryptodome.__path__ = []
+        cipher_mod = types.ModuleType("Cryptodome.Cipher")
+        public_key_mod = types.ModuleType("Cryptodome.PublicKey")
+        util_mod = types.ModuleType("Cryptodome.Util")
+        util_mod.__path__ = []
+        padding_mod = types.ModuleType("Cryptodome.Util.Padding")
 
-    sys.modules["Cryptodome"] = cryptodome
-    sys.modules["Cryptodome.Cipher"] = cipher_mod
-    sys.modules["Cryptodome.PublicKey"] = public_key_mod
-    sys.modules["Cryptodome.Util"] = util_mod
-    sys.modules["Cryptodome.Util.Padding"] = padding_mod
+        cipher_mod.AES = types.SimpleNamespace(
+            MODE_ECB=1, new=lambda *args, **kwargs: None
+        )
+        cipher_mod.PKCS1_v1_5 = types.SimpleNamespace(
+            new=lambda *args, **kwargs: None
+        )
+        public_key_mod.RSA = types.SimpleNamespace(
+            importKey=lambda *args, **kwargs: None
+        )
+        padding_mod.pad = lambda data, block_size: data
 
-    async_timeout_mod = types.ModuleType("async_timeout")
+        _install_stub_module(stubbed_modules, "Cryptodome", cryptodome)
+        _install_stub_module(stubbed_modules, "Cryptodome.Cipher", cipher_mod)
+        _install_stub_module(
+            stubbed_modules, "Cryptodome.PublicKey", public_key_mod
+        )
+        _install_stub_module(stubbed_modules, "Cryptodome.Util", util_mod)
+        _install_stub_module(
+            stubbed_modules, "Cryptodome.Util.Padding", padding_mod
+        )
 
-    class _Timeout:
-        async def __aenter__(self):
-            return None
+    if not _module_available("async_timeout"):
+        async_timeout_mod = types.ModuleType("async_timeout")
 
-        async def __aexit__(self, exc_type, exc, tb):
-            return False
+        class _Timeout:
+            async def __aenter__(self):
+                return None
 
-    async_timeout_mod.timeout = lambda *args, **kwargs: _Timeout()
-    sys.modules["async_timeout"] = async_timeout_mod
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
 
-    homeassistant = types.ModuleType("homeassistant")
-    homeassistant.__path__ = []
-    helpers = types.ModuleType("homeassistant.helpers")
-    helpers.__path__ = []
-    util = types.ModuleType("homeassistant.util")
-    util.__path__ = []
+        async_timeout_mod.timeout = lambda *args, **kwargs: _Timeout()
+        _install_stub_module(stubbed_modules, "async_timeout", async_timeout_mod)
 
-    config_entries_mod = types.ModuleType("homeassistant.config_entries")
-    const_mod = types.ModuleType("homeassistant.const")
-    core_mod = types.ModuleType("homeassistant.core")
-    update_coordinator_mod = types.ModuleType(
-        "homeassistant.helpers.update_coordinator"
-    )
-    dt_mod = types.ModuleType("homeassistant.util.dt")
+    if not _module_available("homeassistant"):
+        homeassistant = types.ModuleType("homeassistant")
+        homeassistant.__path__ = []
+        helpers = types.ModuleType("homeassistant.helpers")
+        helpers.__path__ = []
+        util = types.ModuleType("homeassistant.util")
+        util.__path__ = []
 
-    class ConfigEntry:
-        """Stub config entry."""
+        config_entries_mod = types.ModuleType("homeassistant.config_entries")
+        const_mod = types.ModuleType("homeassistant.const")
+        core_mod = types.ModuleType("homeassistant.core")
+        update_coordinator_mod = types.ModuleType(
+            "homeassistant.helpers.update_coordinator"
+        )
+        dt_mod = types.ModuleType("homeassistant.util.dt")
 
-        def __init__(self, entry_id: str) -> None:
-            self.entry_id = entry_id
+        class ConfigEntry:
+            """Stub config entry."""
 
-    class HomeAssistant:
-        """Stub Home Assistant object."""
+            def __init__(self, entry_id: str) -> None:
+                self.entry_id = entry_id
 
-    class Platform:
-        """Stub platform enum."""
+        class HomeAssistant:
+            """Stub Home Assistant object."""
 
-        SENSOR = "sensor"
-        BINARY_SENSOR = "binary_sensor"
-        SWITCH = "switch"
-        SELECT = "select"
-        NUMBER = "number"
+        class Platform:
+            """Stub platform enum."""
 
-    class DataUpdateCoordinator:
-        """Stub data coordinator."""
+            SENSOR = "sensor"
+            BINARY_SENSOR = "binary_sensor"
+            SWITCH = "switch"
+            SELECT = "select"
+            NUMBER = "number"
 
-    class UpdateFailed(Exception):
-        """Stub update failure."""
+        class DataUpdateCoordinator:
+            """Stub data coordinator."""
 
-    config_entries_mod.ConfigEntry = ConfigEntry
-    const_mod.CONF_PASSWORD = "password"
-    const_mod.CONF_USERNAME = "username"
-    const_mod.Platform = Platform
-    core_mod.HomeAssistant = HomeAssistant
-    update_coordinator_mod.DataUpdateCoordinator = DataUpdateCoordinator
-    update_coordinator_mod.UpdateFailed = UpdateFailed
-    dt_mod.now = lambda: None
+        class UpdateFailed(Exception):
+            """Stub update failure."""
 
-    sys.modules["homeassistant"] = homeassistant
-    sys.modules["homeassistant.helpers"] = helpers
-    sys.modules["homeassistant.util"] = util
-    sys.modules["homeassistant.config_entries"] = config_entries_mod
-    sys.modules["homeassistant.const"] = const_mod
-    sys.modules["homeassistant.core"] = core_mod
-    sys.modules["homeassistant.helpers.update_coordinator"] = (
-        update_coordinator_mod
-    )
-    sys.modules["homeassistant.util.dt"] = dt_mod
+        config_entries_mod.ConfigEntry = ConfigEntry
+        const_mod.CONF_PASSWORD = "password"
+        const_mod.CONF_USERNAME = "username"
+        const_mod.Platform = Platform
+        core_mod.HomeAssistant = HomeAssistant
+        update_coordinator_mod.DataUpdateCoordinator = DataUpdateCoordinator
+        update_coordinator_mod.UpdateFailed = UpdateFailed
+        dt_mod.now = lambda: None
+
+        _install_stub_module(stubbed_modules, "homeassistant", homeassistant)
+        _install_stub_module(stubbed_modules, "homeassistant.helpers", helpers)
+        _install_stub_module(stubbed_modules, "homeassistant.util", util)
+        _install_stub_module(
+            stubbed_modules, "homeassistant.config_entries", config_entries_mod
+        )
+        _install_stub_module(stubbed_modules, "homeassistant.const", const_mod)
+        _install_stub_module(stubbed_modules, "homeassistant.core", core_mod)
+        _install_stub_module(
+            stubbed_modules,
+            "homeassistant.helpers.update_coordinator",
+            update_coordinator_mod,
+        )
+        _install_stub_module(stubbed_modules, "homeassistant.util.dt", dt_mod)
+
+    return stubbed_modules
 
 
 def install_package_stubs() -> None:
@@ -141,10 +192,13 @@ def install_package_stubs() -> None:
     sys.modules[f"{TEST_PACKAGE}.const"] = const_mod
 
 
-install_dependency_stubs()
+dependency_stubs = install_dependency_stubs()
 install_package_stubs()
-api = load_module(f"{TEST_PACKAGE}.api", PACKAGE_ROOT / "api.py")
-integration = load_module(TEST_PACKAGE, PACKAGE_ROOT / "__init__.py", package=True)
+try:
+    api = load_module(f"{TEST_PACKAGE}.api", PACKAGE_ROOT / "api.py")
+    integration = load_module(TEST_PACKAGE, PACKAGE_ROOT / "__init__.py", package=True)
+finally:
+    restore_dependency_stubs(dependency_stubs)
 
 
 class ControlClientCleanupTests(unittest.IsolatedAsyncioTestCase):
@@ -219,6 +273,23 @@ class ControlClientCleanupTests(unittest.IsolatedAsyncioTestCase):
         await jackery_api.async_close()
 
         cached_client.stop.assert_awaited_once()
+        self.assertIsNone(jackery_api._control_client)
+
+    async def test_async_close_uses_next_close_method_after_failure(self) -> None:
+        """Cleanup should keep trying alternative close methods after failures."""
+        cached_client = types.SimpleNamespace(
+            stop=AsyncMock(side_effect=RuntimeError("stop failed")),
+            disconnect=AsyncMock(),
+            close=AsyncMock(),
+        )
+        jackery_api = api.JackeryAPI("user@example.com", "password")
+        jackery_api._control_client = cached_client
+
+        await jackery_api.async_close()
+
+        cached_client.stop.assert_awaited_once()
+        cached_client.disconnect.assert_awaited_once()
+        cached_client.close.assert_not_awaited()
         self.assertIsNone(jackery_api._control_client)
 
     async def test_unload_entry_closes_api_before_removing_entry(self) -> None:

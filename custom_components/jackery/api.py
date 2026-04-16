@@ -257,6 +257,7 @@ class JackeryAPI:
                     method_name,
                     err,
                 )
+                continue
             return
 
     async def async_set_device_property(
