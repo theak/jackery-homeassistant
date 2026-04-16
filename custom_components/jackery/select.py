@@ -127,8 +127,7 @@ class JackerySelectEntity(CoordinatorEntity, SelectEntity):
                 f"Failed to set {self.entity_description.name}: {err}"
             ) from err
 
-        self.coordinator.data[self.entity_description.key] = (
-            self._options.index(option)
-        )
-        self.async_write_ha_state()
+        updated_data = dict(self.coordinator.data or {})
+        updated_data[self.entity_description.key] = self._options.index(option)
+        self.coordinator.async_set_updated_data(updated_data)
         await self.coordinator.async_request_refresh()
