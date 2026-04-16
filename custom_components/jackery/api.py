@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import hashlib
+import inspect
 import json
 import logging
 import uuid
@@ -218,6 +219,46 @@ class JackeryAPI:
             self._control_client = client
             return client
 
+    async def async_close(self) -> None:
+        """Release any cached Socketry control client."""
+        async with self._control_write_lock:
+            await self._async_reset_control_client()
+
+    async def _async_reset_control_client(self, client=None) -> None:
+        """Drop the cached control client and close the discarded instance."""
+        async with self._control_client_lock:
+            client_to_close = self._control_client if client is None else client
+            if client is None:
+                self._control_client = None
+            elif self._control_client is client:
+                self._control_client = None
+
+        await self._async_close_control_client(client_to_close)
+
+    async def _async_close_control_client(self, client) -> None:
+        """Best-effort close a discarded Socketry control client."""
+        if client is None:
+            return
+
+        for method_name in ("stop", "disconnect", "close"):
+            method = getattr(client, method_name, None)
+            if method is None:
+                continue
+
+            try:
+                result = method()
+                if inspect.isawaitable(result):
+                    await result
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:  # pragma: no cover - defensive cleanup
+                _LOGGER.debug(
+                    "Failed to %s discarded Socketry control client: %s",
+                    method_name,
+                    err,
+                )
+            return
+
     async def async_set_device_property(
         self,
         device_id: str,
@@ -245,7 +286,7 @@ class JackeryAPI:
                 ):
                     if attempt == 1:
                         raise
-                    self._control_client = None
+                    await self._async_reset_control_client(client)
                     client = await self._async_get_control_client()
 
     @staticmethod

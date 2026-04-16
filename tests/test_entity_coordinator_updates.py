@@ -254,7 +254,7 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(entity.current_option, "high")
 
     async def test_number_updates_coordinator_with_copied_snapshot(self) -> None:
-        """Number writes should publish the coerced integer value atomically."""
+        """Number writes should publish the normalized integer value atomically."""
         original_data = {"pm": 20, "unchanged": 7}
         coordinator = TrackingCoordinator(original_data)
         api = types.SimpleNamespace(async_set_device_property=AsyncMock())
@@ -271,14 +271,42 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
             "device-1",
             "serial-1",
             "energy-saving",
-            15,
+            16,
         )
         self.assertEqual(original_data, {"pm": 20, "unchanged": 7})
-        self.assertEqual(coordinator.updated_data_calls, [{"pm": 15, "unchanged": 7}])
+        self.assertEqual(coordinator.updated_data_calls, [{"pm": 16, "unchanged": 7}])
         self.assertIsNot(coordinator.data, original_data)
         self.assertEqual(coordinator.refresh_requests, 1)
         self.assertEqual(entity.write_count, 0)
-        self.assertEqual(entity.native_value, 15.0)
+        self.assertEqual(entity.native_value, 16.0)
+
+    async def test_number_clamps_values_to_supported_range(self) -> None:
+        """Number writes should clamp out-of-range values before publishing."""
+        coordinator = TrackingCoordinator({"pm": 20})
+        api = types.SimpleNamespace(async_set_device_property=AsyncMock())
+        entity = number.JackeryNumberEntity(
+            api=api,
+            coordinator=coordinator,
+            description=number.NUMBER_DESCRIPTIONS["pm"],
+            device_info=self.device_info,
+        )
+
+        await entity.async_set_native_value(2000)
+
+        api.async_set_device_property.assert_awaited_once_with(
+            "device-1",
+            "serial-1",
+            "energy-saving",
+            1440,
+        )
+        self.assertEqual(coordinator.updated_data_calls, [{"pm": 1440}])
+        self.assertEqual(entity.native_value, 1440.0)
+
+    def test_writable_entities_use_base_name_handling(self) -> None:
+        """Writable entities should rely on _attr_name/base entity naming."""
+        self.assertNotIn("name", switch.JackerySwitchEntity.__dict__)
+        self.assertNotIn("name", select.JackerySelectEntity.__dict__)
+        self.assertNotIn("name", number.JackeryNumberEntity.__dict__)
 
     async def test_switch_does_not_wrap_cancellation(self) -> None:
         """Switch writes should propagate cancellation errors unchanged."""

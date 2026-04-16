@@ -84,6 +84,7 @@ class JackerySelectEntity(CoordinatorEntity, SelectEntity):
         self._device_id = device_info["devId"]
         self._device_sn = device_info["devSn"]
         self._attr_unique_id = f"{self._device_id}_{description.key}"
+        self._attr_name = description.name
         self._attr_icon = description.icon
         self._attr_options = list(self._options)
         self._attr_device_info = DeviceInfo(
@@ -92,11 +93,6 @@ class JackerySelectEntity(CoordinatorEntity, SelectEntity):
             manufacturer="Jackery",
             model=device_info.get("productType"),
         )
-
-    @property
-    def name(self) -> str:
-        """Return the entity name."""
-        return self.entity_description.name
 
     @property
     def current_option(self) -> str | None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from decimal import Decimal, ROUND_HALF_UP
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
@@ -85,6 +86,7 @@ class JackeryNumberEntity(CoordinatorEntity, NumberEntity):
         self._device_id = device_info["devId"]
         self._device_sn = device_info["devSn"]
         self._attr_unique_id = f"{self._device_id}_{description.key}"
+        self._attr_name = description.name
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = UnitOfTime.MINUTES
         self._attr_mode = NumberMode.BOX
@@ -97,11 +99,6 @@ class JackeryNumberEntity(CoordinatorEntity, NumberEntity):
             manufacturer="Jackery",
             model=device_info.get("productType"),
         )
-
-    @property
-    def name(self) -> str:
-        """Return the entity name."""
-        return self.entity_description.name
 
     @property
     def native_value(self) -> float | None:
@@ -119,7 +116,7 @@ class JackeryNumberEntity(CoordinatorEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Set a new numeric value."""
-        int_value = int(value)
+        int_value = self._normalize_value(value)
 
         try:
             await self._api.async_set_device_property(
@@ -139,3 +136,17 @@ class JackeryNumberEntity(CoordinatorEntity, NumberEntity):
         updated_data[self.entity_description.key] = int_value
         self.coordinator.async_set_updated_data(updated_data)
         await self.coordinator.async_request_refresh()
+
+    def _normalize_value(self, value: float) -> int:
+        """Clamp a requested value and snap it to the nearest configured step."""
+        min_value = Decimal(str(self._attr_native_min_value))
+        max_value = Decimal(str(self._attr_native_max_value))
+        step = Decimal(str(self._attr_native_step or 1))
+        requested = Decimal(str(value))
+        clamped = min(max(requested, min_value), max_value)
+        steps = ((clamped - min_value) / step).to_integral_value(
+            rounding=ROUND_HALF_UP
+        )
+        normalized = min_value + (steps * step)
+        normalized = min(max(normalized, min_value), max_value)
+        return int(normalized)
