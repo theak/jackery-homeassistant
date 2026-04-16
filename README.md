@@ -53,6 +53,8 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 3. Search for "Jackery" in the integrations section
 4. Click "Download" and restart Home Assistant
 
+HACS installs published version tags from GitHub releases. This repository publishes a matching GitHub release automatically whenever a semantic version tag is pushed.
+
 ### Option 2: Manual Installation
 
 1. Download or clone this repository
@@ -151,6 +153,8 @@ logger:
 ## Contributing
 
 Pull Requests are encouraged and welcome! For major changes, please open an issue first to discuss what you would like to change.
+
+When changing `custom_components/jackery/manifest.json` version metadata, push the matching semantic version tag so HACS can install that version directly.
 
 ## License
 
