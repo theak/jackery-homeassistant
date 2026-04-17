@@ -10,6 +10,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = REPO_ROOT / "custom_components" / "jackery" / "manifest.json"
 README_PATH = REPO_ROOT / "README.md"
+HACS_PATH = REPO_ROOT / "hacs.json"
 
 
 class MetadataTests(unittest.TestCase):
@@ -18,6 +19,7 @@ class MetadataTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.manifest = json.loads(MANIFEST_PATH.read_text())
+        cls.hacs = json.loads(HACS_PATH.read_text())
         cls.readme = README_PATH.read_text()
 
     def test_manifest_points_to_current_repository(self) -> None:
@@ -40,12 +42,21 @@ class MetadataTests(unittest.TestCase):
             self.readme,
         )
 
+    def test_hacs_default_branch_install_remains_enabled(self) -> None:
+        """HACS should continue to offer the default branch between releases."""
+        self.assertFalse(self.hacs["hide_default_branch"])
+        self.assertIn(
+            "HACS can also install the repository's default branch",
+            self.readme,
+        )
+
     def test_repository_files_do_not_reference_legacy_repo(self) -> None:
         """The published metadata should not point at the archived upstream fork."""
         legacy_repo = "theak/jackery-homeassistant"
         checked_files = [
             MANIFEST_PATH,
             README_PATH,
+            HACS_PATH,
         ]
         for file_path in checked_files:
             self.assertNotIn(legacy_repo, file_path.read_text(), str(file_path))

@@ -55,6 +55,8 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 
 HACS installs published version tags from GitHub releases. This repository now publishes a matching GitHub release automatically whenever a semantic version tag is pushed.
 
+If you need fixes that have not been published as a new GitHub release yet, HACS can also install the repository's default branch. This keeps branch installs available even while the latest published release remains `1.0.2`.
+
 ### Option 2: Manual Installation
 
 1. Download or clone this repository
