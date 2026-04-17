@@ -49,4 +49,8 @@ jobs:
           if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
             exit 0
           fi
+          if ! gh api "repos/$REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag '$TAG' does not exist in '$REPOSITORY'" >&2
+            exit 1
+          fi
           gh release create "$TAG" --repo "$REPOSITORY" --title "$TAG" --generate-notes

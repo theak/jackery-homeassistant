@@ -102,20 +102,20 @@ class JackerySwitchEntity(CoordinatorEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the device setting on."""
-        await self._async_set_value("on", 1)
+        await self._async_set_value(1)
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn the device setting off."""
-        await self._async_set_value("off", 0)
+        await self._async_set_value(0)
 
-    async def _async_set_value(self, value: str, raw_state: int) -> None:
+    async def _async_set_value(self, raw_state: int) -> None:
         """Set the underlying Jackery property."""
         try:
             await self._api.async_set_device_property(
                 self._device_id,
                 self._device_sn,
                 self._slug,
-                value,
+                raw_state,
             )
         except asyncio.CancelledError:
             raise

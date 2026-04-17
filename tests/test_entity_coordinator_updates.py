@@ -286,7 +286,7 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
             "device-1",
             "serial-1",
             "ac",
-            "on",
+            1,
         )
         self.assertEqual(original_data, {"oac": 0, "unchanged": 7})
         self.assertEqual(coordinator.updated_data_calls, [{"oac": 1, "unchanged": 7}])
@@ -294,6 +294,28 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coordinator.refresh_requests, 1)
         self.assertEqual(entity.write_count, 0)
         self.assertTrue(entity.is_on)
+
+    async def test_switch_turn_off_uses_numeric_payload(self) -> None:
+        """Switch off writes should send the raw integer state."""
+        coordinator = TrackingCoordinator({"oac": 1, "unchanged": 7})
+        api = types.SimpleNamespace(async_set_device_property=AsyncMock())
+        entity = switch.JackerySwitchEntity(
+            api=api,
+            coordinator=coordinator,
+            description=switch.SWITCH_DESCRIPTIONS["oac"],
+            device_info=self.device_info,
+        )
+
+        await entity.async_turn_off()
+
+        api.async_set_device_property.assert_awaited_once_with(
+            "device-1",
+            "serial-1",
+            "ac",
+            0,
+        )
+        self.assertEqual(coordinator.updated_data_calls, [{"oac": 0, "unchanged": 7}])
+        self.assertFalse(entity.is_on)
 
     async def test_select_updates_coordinator_with_copied_snapshot(self) -> None:
         """Select writes should publish the new option index atomically."""
