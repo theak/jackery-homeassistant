@@ -106,6 +106,47 @@ class ProtocolTests(unittest.TestCase):
         self.assertTrue(protocol.is_supported_property({"sltb": 30}, "sltb"))
         self.assertTrue(protocol.is_supported_property({"slt": 30}, "sltb"))
 
+    def test_charging_plan_support_requires_both_dps(self) -> None:
+        """Charging plans should only surface when both plan DPs are present."""
+        self.assertFalse(protocol.has_charging_plan_support({"107": 1}))
+        self.assertFalse(protocol.has_charging_plan_support({"108": "22:00-06:00,1111111"}))
+        self.assertTrue(
+            protocol.has_charging_plan_support(
+                {"107": 1, "108": "22:00-06:00,1111111"}
+            )
+        )
+
+    def test_parse_and_compose_charging_plan(self) -> None:
+        """Charging-plan helpers should preserve valid payloads."""
+        self.assertEqual(
+            protocol.parse_charging_plan("22:00-06:00,0111110"),
+            ("22:00-06:00", "0111110"),
+        )
+        self.assertEqual(
+            protocol.compose_charging_plan("22:00-06:00", "0111110"),
+            "22:00-06:00,0111110",
+        )
+        self.assertEqual(
+            protocol.charging_plan_repeat_option("0111110"),
+            "Weekdays",
+        )
+        self.assertEqual(
+            protocol.charging_plan_repeat_mask("Weekends"),
+            "1000001",
+        )
+
+    def test_parse_charging_plan_rejects_malformed_values(self) -> None:
+        """Malformed charging-plan payloads should be rejected."""
+        self.assertIsNone(protocol.parse_charging_plan(None))
+        self.assertIsNone(protocol.parse_charging_plan("22:00-06:00"))
+        self.assertIsNone(protocol.parse_charging_plan("22:00-06:00,010101"))
+        self.assertIsNone(protocol.parse_charging_plan("25:00-06:00,1111111"))
+
+        with self.assertRaises(ValueError):
+            protocol.compose_charging_plan("25:00-06:00", "1111111")
+        with self.assertRaises(ValueError):
+            protocol.compose_charging_plan("22:00-06:00", "invalid")
+
     def test_new_controls_only_show_when_reported(self) -> None:
         """Recovered controls should be filtered directly from reported properties."""
         properties = {

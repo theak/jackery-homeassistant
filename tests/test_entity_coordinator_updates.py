@@ -28,17 +28,6 @@ def load_module(module_name: str, path: Path, stubbed_modules: dict[str, object]
     return module
 
 
-def _module_available(module_name: str) -> bool:
-    """Return True when a real module is already loaded or importable."""
-    if module_name in sys.modules:
-        return True
-
-    try:
-        return importlib.util.find_spec(module_name) is not None
-    except (ImportError, ModuleNotFoundError, ValueError):
-        return False
-
-
 def _install_stub_module(
     stubbed_modules: dict[str, object], module_name: str, module: types.ModuleType
 ) -> None:
@@ -58,28 +47,32 @@ def restore_stubbed_modules(stubbed_modules: dict[str, object]) -> None:
 
 def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     """Install the minimal Home Assistant surface needed for unit tests."""
-    if _module_available("homeassistant"):
-        return
+    def ensure_module(
+        module_name: str, *, package: bool = False
+    ) -> types.ModuleType:
+        module = sys.modules.get(module_name)
+        if not isinstance(module, types.ModuleType):
+            module = types.ModuleType(module_name)
+            _install_stub_module(stubbed_modules, module_name, module)
+        if package and not hasattr(module, "__path__"):
+            module.__path__ = []
+        return module
 
-    homeassistant = types.ModuleType("homeassistant")
-    homeassistant.__path__ = []
-    components = types.ModuleType("homeassistant.components")
-    components.__path__ = []
-    helpers = types.ModuleType("homeassistant.helpers")
-    helpers.__path__ = []
+    homeassistant = ensure_module("homeassistant", package=True)
+    components = ensure_module("homeassistant.components", package=True)
+    helpers = ensure_module("homeassistant.helpers", package=True)
 
-    switch_mod = types.ModuleType("homeassistant.components.switch")
-    select_mod = types.ModuleType("homeassistant.components.select")
-    number_mod = types.ModuleType("homeassistant.components.number")
-    config_entries_mod = types.ModuleType("homeassistant.config_entries")
-    const_mod = types.ModuleType("homeassistant.const")
-    core_mod = types.ModuleType("homeassistant.core")
-    exceptions_mod = types.ModuleType("homeassistant.exceptions")
-    entity_mod = types.ModuleType("homeassistant.helpers.entity")
-    entity_platform_mod = types.ModuleType("homeassistant.helpers.entity_platform")
-    update_coordinator_mod = types.ModuleType(
-        "homeassistant.helpers.update_coordinator"
-    )
+    switch_mod = ensure_module("homeassistant.components.switch")
+    select_mod = ensure_module("homeassistant.components.select")
+    number_mod = ensure_module("homeassistant.components.number")
+    text_mod = ensure_module("homeassistant.components.text")
+    config_entries_mod = ensure_module("homeassistant.config_entries")
+    const_mod = ensure_module("homeassistant.const")
+    core_mod = ensure_module("homeassistant.core")
+    exceptions_mod = ensure_module("homeassistant.exceptions")
+    entity_mod = ensure_module("homeassistant.helpers.entity")
+    entity_platform_mod = ensure_module("homeassistant.helpers.entity_platform")
+    update_coordinator_mod = ensure_module("homeassistant.helpers.update_coordinator")
 
     class SwitchEntity:
         """Stub switch entity."""
@@ -90,10 +83,18 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     class NumberEntity:
         """Stub number entity."""
 
+    class TextEntity:
+        """Stub text entity."""
+
     class NumberMode:
         """Stub number mode enum."""
 
         BOX = "box"
+
+    class TextMode:
+        """Stub text mode enum."""
+
+        TEXT = "text"
 
     class ConfigEntry:
         """Stub config entry."""
@@ -128,6 +129,10 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
             self.coordinator = coordinator
             self.write_count = 0
 
+        @property
+        def available(self) -> bool:
+            return True
+
         def async_write_ha_state(self) -> None:
             self.write_count += 1
 
@@ -143,6 +148,8 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     select_mod.SelectEntity = SelectEntity
     number_mod.NumberEntity = NumberEntity
     number_mod.NumberMode = NumberMode
+    text_mod.TextEntity = TextEntity
+    text_mod.TextMode = TextMode
     config_entries_mod.ConfigEntry = ConfigEntry
     const_mod.UnitOfTime = UnitOfTime
     core_mod.HomeAssistant = HomeAssistant
@@ -155,40 +162,13 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
 
     homeassistant.components = components
     homeassistant.helpers = helpers
-
-    _install_stub_module(stubbed_modules, "homeassistant", homeassistant)
-    _install_stub_module(stubbed_modules, "homeassistant.components", components)
-    _install_stub_module(
-        stubbed_modules, "homeassistant.components.switch", switch_mod
-    )
-    _install_stub_module(
-        stubbed_modules, "homeassistant.components.select", select_mod
-    )
-    _install_stub_module(
-        stubbed_modules, "homeassistant.components.number", number_mod
-    )
-    _install_stub_module(
-        stubbed_modules, "homeassistant.config_entries", config_entries_mod
-    )
-    _install_stub_module(stubbed_modules, "homeassistant.const", const_mod)
-    _install_stub_module(stubbed_modules, "homeassistant.core", core_mod)
-    _install_stub_module(
-        stubbed_modules, "homeassistant.exceptions", exceptions_mod
-    )
-    _install_stub_module(stubbed_modules, "homeassistant.helpers", helpers)
-    _install_stub_module(
-        stubbed_modules, "homeassistant.helpers.entity", entity_mod
-    )
-    _install_stub_module(
-        stubbed_modules,
-        "homeassistant.helpers.entity_platform",
-        entity_platform_mod,
-    )
-    _install_stub_module(
-        stubbed_modules,
-        "homeassistant.helpers.update_coordinator",
-        update_coordinator_mod,
-    )
+    components.switch = switch_mod
+    components.select = select_mod
+    components.number = number_mod
+    components.text = text_mod
+    helpers.entity = entity_mod
+    helpers.entity_platform = entity_platform_mod
+    helpers.update_coordinator = update_coordinator_mod
 
 
 def install_package_stubs(stubbed_modules: dict[str, object]) -> None:
@@ -203,12 +183,15 @@ def install_package_stubs(stubbed_modules: dict[str, object]) -> None:
 
     const_mod = types.ModuleType(f"{TEST_PACKAGE}.const")
     const_mod.DOMAIN = "jackery"
+    const_mod.CHARGING_PLAN_SWITCH = "107"
+    const_mod.CHARGING_PLAN_DATA = "108"
 
     api_mod.JackeryAPI = JackeryAPI
 
     _install_stub_module(stubbed_modules, TEST_PACKAGE, package_mod)
     _install_stub_module(stubbed_modules, f"{TEST_PACKAGE}.api", api_mod)
     _install_stub_module(stubbed_modules, f"{TEST_PACKAGE}.const", const_mod)
+
 
 stubbed_modules: dict[str, object] = {}
 install_homeassistant_stubs(stubbed_modules)
@@ -231,6 +214,11 @@ select = load_module(
 number = load_module(
     f"{TEST_PACKAGE}.number",
     PACKAGE_ROOT / "number.py",
+    stubbed_modules,
+)
+text = load_module(
+    f"{TEST_PACKAGE}.text",
+    PACKAGE_ROOT / "text.py",
     stubbed_modules,
 )
 
@@ -393,11 +381,117 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coordinator.updated_data_calls, [{"pm": 1440}])
         self.assertEqual(entity.native_value, 1440.0)
 
+    async def test_charging_plan_switch_updates_coordinator_snapshot(self) -> None:
+        """Charging-plan switch writes should use the raw DP helper."""
+        original_data = {"107": 0, "108": "22:00-06:00,1111111", "unchanged": 7}
+        coordinator = TrackingCoordinator(original_data)
+        api = types.SimpleNamespace(async_set_device_dp=AsyncMock())
+        entity = switch.JackeryChargingPlanSwitchEntity(
+            api=api,
+            coordinator=coordinator,
+            description=switch.CHARGING_PLAN_SWITCH_DESCRIPTION,
+            device_info=self.device_info,
+        )
+
+        await entity.async_turn_on()
+
+        api.async_set_device_dp.assert_awaited_once_with(
+            "device-1",
+            "serial-1",
+            "107",
+            1,
+        )
+        self.assertEqual(original_data, {"107": 0, "108": "22:00-06:00,1111111", "unchanged": 7})
+        self.assertEqual(
+            coordinator.updated_data_calls,
+            [{"107": 1, "108": "22:00-06:00,1111111", "unchanged": 7}],
+        )
+        self.assertTrue(entity.is_on)
+
+    async def test_charging_plan_time_preserves_repeat_mask(self) -> None:
+        """Time writes should replace only the time segment of DP108."""
+        original_data = {"107": 1, "108": "22:00-06:00,0111110", "unchanged": 7}
+        coordinator = TrackingCoordinator(original_data)
+        api = types.SimpleNamespace(async_set_device_dp=AsyncMock())
+        entity = text.JackeryChargingPlanTimeEntity(
+            api=api,
+            coordinator=coordinator,
+            description=text.CHARGING_PLAN_TIME_DESCRIPTION,
+            device_info=self.device_info,
+        )
+
+        await entity.async_set_value("23:30-05:30")
+
+        api.async_set_device_dp.assert_awaited_once_with(
+            "device-1",
+            "serial-1",
+            "108",
+            "23:30-05:30,0111110",
+        )
+        self.assertEqual(
+            coordinator.updated_data_calls,
+            [{"107": 1, "108": "23:30-05:30,0111110", "unchanged": 7}],
+        )
+        self.assertEqual(entity.native_value, "23:30-05:30")
+
+    async def test_charging_plan_repeat_preserves_time_range(self) -> None:
+        """Repeat writes should replace only the repeat segment of DP108."""
+        original_data = {"107": 1, "108": "22:00-06:00,0111110", "unchanged": 7}
+        coordinator = TrackingCoordinator(original_data)
+        api = types.SimpleNamespace(async_set_device_dp=AsyncMock())
+        entity = select.JackeryChargingPlanRepeatEntity(
+            api=api,
+            coordinator=coordinator,
+            description=select.CHARGING_PLAN_REPEAT_DESCRIPTION,
+            device_info=self.device_info,
+        )
+
+        await entity.async_select_option("Weekends")
+
+        api.async_set_device_dp.assert_awaited_once_with(
+            "device-1",
+            "serial-1",
+            "108",
+            "22:00-06:00,1000001",
+        )
+        self.assertEqual(
+            coordinator.updated_data_calls,
+            [{"107": 1, "108": "22:00-06:00,1000001", "unchanged": 7}],
+        )
+        self.assertEqual(entity.current_option, "Weekends")
+
+    async def test_charging_plan_entities_reject_malformed_dp108(self) -> None:
+        """Malformed charging-plan payloads should make dependent entities unavailable."""
+        coordinator = TrackingCoordinator({"107": 1, "108": "bad-value"})
+        time_entity = text.JackeryChargingPlanTimeEntity(
+            api=types.SimpleNamespace(async_set_device_dp=AsyncMock()),
+            coordinator=coordinator,
+            description=text.CHARGING_PLAN_TIME_DESCRIPTION,
+            device_info=self.device_info,
+        )
+        repeat_entity = select.JackeryChargingPlanRepeatEntity(
+            api=types.SimpleNamespace(async_set_device_dp=AsyncMock()),
+            coordinator=coordinator,
+            description=select.CHARGING_PLAN_REPEAT_DESCRIPTION,
+            device_info=self.device_info,
+        )
+
+        self.assertFalse(time_entity.available)
+        self.assertIsNone(time_entity.native_value)
+        self.assertFalse(repeat_entity.available)
+        self.assertIsNone(repeat_entity.current_option)
+
+        with self.assertRaises(sys.modules["homeassistant.exceptions"].HomeAssistantError):
+            await time_entity.async_set_value("22:00-06:00")
+        with self.assertRaises(sys.modules["homeassistant.exceptions"].HomeAssistantError):
+            await repeat_entity.async_select_option("Everyday")
+
     def test_writable_entities_use_base_name_handling(self) -> None:
         """Writable entities should rely on _attr_name/base entity naming."""
         self.assertNotIn("name", switch.JackerySwitchEntity.__dict__)
         self.assertNotIn("name", select.JackerySelectEntity.__dict__)
         self.assertNotIn("name", number.JackeryNumberEntity.__dict__)
+        self.assertNotIn("name", text.JackeryChargingPlanTimeEntity.__dict__)
 
     async def test_switch_does_not_wrap_cancellation(self) -> None:
         """Switch writes should propagate cancellation errors unchanged."""
@@ -455,6 +549,96 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(coordinator.updated_data_calls, [])
         self.assertEqual(coordinator.refresh_requests, 0)
+
+    async def test_charging_plan_time_does_not_wrap_cancellation(self) -> None:
+        """Charging-plan text writes should propagate cancellation unchanged."""
+        coordinator = TrackingCoordinator({"107": 1, "108": "22:00-06:00,1111111"})
+        api = types.SimpleNamespace(
+            async_set_device_dp=AsyncMock(side_effect=asyncio.CancelledError())
+        )
+        entity = text.JackeryChargingPlanTimeEntity(
+            api=api,
+            coordinator=coordinator,
+            description=text.CHARGING_PLAN_TIME_DESCRIPTION,
+            device_info=self.device_info,
+        )
+
+        with self.assertRaises(asyncio.CancelledError):
+            await entity.async_set_value("23:00-05:00")
+
+        self.assertEqual(coordinator.updated_data_calls, [])
+        self.assertEqual(coordinator.refresh_requests, 0)
+
+    async def test_charging_plan_platforms_require_both_support_keys(self) -> None:
+        """Charging-plan entities should only be created when both DPs are present."""
+        api = types.SimpleNamespace(async_set_device_dp=AsyncMock(), async_set_device_property=AsyncMock())
+        device = dict(self.device_info)
+        entry_id = "entry-1"
+
+        async def collect_entities(module, coordinator_data):
+            added: list[object] = []
+            hass = types.SimpleNamespace(
+                data={
+                    "jackery": {
+                        entry_id: {
+                            "api": api,
+                            "coordinators": {"device-1": TrackingCoordinator(coordinator_data)},
+                            "devices": [device],
+                        }
+                    }
+                }
+            )
+            entry = types.SimpleNamespace(entry_id=entry_id)
+            await module.async_setup_entry(hass, entry, added.extend)
+            return added
+
+        self.assertEqual(
+            [type(entity).__name__ for entity in await collect_entities(switch, {"107": 1})],
+            [],
+        )
+        self.assertEqual(
+            [type(entity).__name__ for entity in await collect_entities(select, {"108": "22:00-06:00,1111111"}) if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"],
+            [],
+        )
+        self.assertEqual(
+            [type(entity).__name__ for entity in await collect_entities(text, {"107": 1, "108": "22:00-06:00,1111111"})],
+            ["JackeryChargingPlanTimeEntity"],
+        )
+
+
+class HomeAssistantStubInstallerTests(unittest.TestCase):
+    """Verify Home Assistant test stubs can extend partial installs."""
+
+    def test_install_homeassistant_stubs_adds_missing_modules(self) -> None:
+        """A pre-existing partial Home Assistant package should be completed."""
+        local_stubbed_modules: dict[str, object] = {}
+        homeassistant = types.ModuleType("homeassistant")
+        homeassistant.__path__ = []
+        helpers = types.ModuleType("homeassistant.helpers")
+        helpers.__path__ = []
+
+        _install_stub_module(local_stubbed_modules, "homeassistant", homeassistant)
+        _install_stub_module(
+            local_stubbed_modules, "homeassistant.helpers", helpers
+        )
+
+        try:
+            install_homeassistant_stubs(local_stubbed_modules)
+
+            self.assertIs(sys.modules["homeassistant"], homeassistant)
+            self.assertIs(homeassistant.helpers, helpers)
+            self.assertIn("homeassistant.components.switch", sys.modules)
+            self.assertTrue(
+                hasattr(sys.modules["homeassistant.const"], "UnitOfTime")
+            )
+            self.assertTrue(
+                hasattr(
+                    sys.modules["homeassistant.helpers.update_coordinator"],
+                    "CoordinatorEntity",
+                )
+            )
+        finally:
+            restore_stubbed_modules(local_stubbed_modules)
 
 
 if __name__ == "__main__":

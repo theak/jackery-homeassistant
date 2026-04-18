@@ -18,8 +18,11 @@ from Cryptodome.Util.Padding import pad
 
 try:
     import socketry
-except ImportError:  # pragma: no cover - handled by manifest dependency in production
-    socketry = None
+except ModuleNotFoundError as err:  # pragma: no cover - dependency provided in prod
+    if err.name == "socketry":
+        socketry = None
+    else:
+        raise
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -300,6 +303,21 @@ class JackeryAPI:
                         raise
                     await self._async_reset_control_client(client)
                     client = await self._async_get_control_client()
+
+    async def async_set_device_dp(
+        self,
+        device_id: str,
+        device_sn: str,
+        dp_id: str | int,
+        value: str | int | bool,
+    ) -> None:
+        """Set a raw device DP through the existing control channel."""
+        await self.async_set_device_property(
+            device_id,
+            device_sn,
+            str(dp_id),
+            value,
+        )
 
     @staticmethod
     def _resolve_control_device(client, device_id: str, device_sn: str):

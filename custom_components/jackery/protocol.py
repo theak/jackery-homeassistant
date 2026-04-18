@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -108,6 +109,21 @@ CONTROL_SPECS: dict[str, JackeryControlSpec] = {
     ),
 }
 
+CHARGING_PLAN_SWITCH_DP = "107"
+CHARGING_PLAN_DATA_DP = "108"
+CHARGING_PLAN_REPEAT_TO_MASK: dict[str, str] = {
+    "Everyday": "1111111",
+    "Weekdays": "0111110",
+    "Weekends": "1000001",
+    "Once": "0000000",
+}
+CHARGING_PLAN_MASK_TO_REPEAT: dict[str, str] = {
+    mask: option for option, mask in CHARGING_PLAN_REPEAT_TO_MASK.items()
+}
+_CHARGING_PLAN_TIME_RANGE = re.compile(
+    r"^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$"
+)
+
 
 def _property_keys(properties: Mapping[str, object] | None) -> set[str]:
     """Return the set of reported property keys."""
@@ -120,6 +136,51 @@ def has_split_dc_outputs(properties: Mapping[str, object] | None) -> bool:
     """Return whether the device reports separate USB or car output keys."""
     keys = _property_keys(properties)
     return "odcu" in keys or "odcc" in keys
+
+
+def has_charging_plan_support(properties: Mapping[str, object] | None) -> bool:
+    """Return whether the device reports both charging-plan DPs."""
+    keys = _property_keys(properties)
+    return {
+        CHARGING_PLAN_SWITCH_DP,
+        CHARGING_PLAN_DATA_DP,
+    }.issubset(keys)
+
+
+def parse_charging_plan(value: object) -> tuple[str, str] | None:
+    """Split a charging-plan payload into time range and repeat mask."""
+    if not isinstance(value, str):
+        return None
+
+    time_range, separator, repeat_mask = value.partition(",")
+    if not separator:
+        return None
+    if _CHARGING_PLAN_TIME_RANGE.fullmatch(time_range) is None:
+        return None
+    if repeat_mask not in CHARGING_PLAN_MASK_TO_REPEAT:
+        return None
+
+    return time_range, repeat_mask
+
+
+def compose_charging_plan(time_range: str, repeat_mask: str) -> str:
+    """Join a validated charging-plan time range and repeat mask."""
+    if _CHARGING_PLAN_TIME_RANGE.fullmatch(time_range) is None:
+        raise ValueError(f"Invalid charging plan time range: {time_range!r}")
+    if repeat_mask not in CHARGING_PLAN_MASK_TO_REPEAT:
+        raise ValueError(f"Invalid charging plan repeat mask: {repeat_mask!r}")
+
+    return f"{time_range},{repeat_mask}"
+
+
+def charging_plan_repeat_option(repeat_mask: str) -> str | None:
+    """Return the user-facing repeat option for a repeat mask."""
+    return CHARGING_PLAN_MASK_TO_REPEAT.get(repeat_mask)
+
+
+def charging_plan_repeat_mask(option: str) -> str:
+    """Return the repeat mask for a user-facing charging-plan option."""
+    return CHARGING_PLAN_REPEAT_TO_MASK[option]
 
 
 def is_supported_property(

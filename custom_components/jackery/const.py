@@ -15,8 +15,10 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    EntityCategory,
     PERCENTAGE,
     UnitOfElectricPotential,
+    UnitOfFrequency,
     UnitOfPower,
     UnitOfTemperature,
     UnitOfTime,
@@ -27,6 +29,27 @@ DOMAIN = "jackery"
 
 # Polling interval
 POLLING_INTERVAL_SEC = 60
+
+# Charging plan DP identifiers for Jackery Plus devices.
+CHARGING_PLAN_SWITCH = "107"
+CHARGING_PLAN_DATA = "108"
+
+BATTERY_STATUS_LABELS: dict[int, str] = {
+    0: "Idle",
+    1: "Charging",
+    2: "Discharging",
+    3: "Fault",
+}
+
+
+def _battery_status_value(value: object) -> str:
+    """Return a friendly label for battery status codes."""
+    try:
+        status = int(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    return BATTERY_STATUS_LABELS.get(status, str(value))
 
 
 @dataclass
@@ -63,7 +86,7 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
     ),
     JackerySensorEntityDescription(
         key="ip",
-        name="Input Power",
+        name="Total Input Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -71,6 +94,13 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
     JackerySensorEntityDescription(
         key="acip",
         name="AC Input Power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    JackerySensorEntityDescription(
+        key="cip",
+        name="DC Input Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -98,6 +128,31 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value=lambda value: value / 10.0,
+    ),
+    JackerySensorEntityDescription(
+        key="acohz",
+        name="AC Output Frequency",
+        native_unit_of_measurement=UnitOfFrequency.HERTZ,
+        device_class=SensorDeviceClass.FREQUENCY,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    JackerySensorEntityDescription(
+        key="ec",
+        name="Error Code",
+        icon="mdi:alert-circle-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    JackerySensorEntityDescription(
+        key="bs",
+        name="Battery Status",
+        icon="mdi:battery-heart-variant",
+        value=_battery_status_value,
+    ),
+    JackerySensorEntityDescription(
+        key="pmb",
+        name="Parallel Modules Connected",
+        icon="mdi:battery-sync-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     JackerySensorEntityDescription(
         key="last_updated",
@@ -137,5 +192,19 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
         name="USB Output",
         device_class=BinarySensorDeviceClass.POWER,
         icon="mdi:usb-port",
+    ),
+    BinarySensorEntityDescription(
+        key="ta",
+        name="Temperature Alarm",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon="mdi:thermometer-alert",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BinarySensorEntityDescription(
+        key="pal",
+        name="Power Alarm",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon="mdi:alert-octagon-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )

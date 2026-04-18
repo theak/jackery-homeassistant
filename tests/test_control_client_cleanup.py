@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import importlib.util
 import sys
 import types
@@ -118,69 +119,77 @@ def install_dependency_stubs(stubbed_modules: dict[str, object]) -> None:
         async_timeout_mod.timeout = lambda *args, **kwargs: _Timeout()
         _install_stub_module(stubbed_modules, "async_timeout", async_timeout_mod)
 
-    if not _module_available("homeassistant"):
-        homeassistant = types.ModuleType("homeassistant")
-        homeassistant.__path__ = []
-        helpers = types.ModuleType("homeassistant.helpers")
-        helpers.__path__ = []
-        util = types.ModuleType("homeassistant.util")
-        util.__path__ = []
+    def ensure_stub_module(
+        module_name: str, *, package: bool = False
+    ) -> types.ModuleType:
+        module = sys.modules.get(module_name)
+        if not isinstance(module, types.ModuleType):
+            module = types.ModuleType(module_name)
+            _install_stub_module(stubbed_modules, module_name, module)
+        if package and not hasattr(module, "__path__"):
+            module.__path__ = []
+        return module
 
-        config_entries_mod = types.ModuleType("homeassistant.config_entries")
-        const_mod = types.ModuleType("homeassistant.const")
-        core_mod = types.ModuleType("homeassistant.core")
-        update_coordinator_mod = types.ModuleType(
-            "homeassistant.helpers.update_coordinator"
-        )
-        dt_mod = types.ModuleType("homeassistant.util.dt")
+    homeassistant = ensure_stub_module("homeassistant", package=True)
+    helpers = ensure_stub_module("homeassistant.helpers", package=True)
+    util = ensure_stub_module("homeassistant.util", package=True)
 
-        class ConfigEntry:
-            """Stub config entry."""
+    config_entries_mod = ensure_stub_module("homeassistant.config_entries")
+    const_mod = ensure_stub_module("homeassistant.const")
+    core_mod = ensure_stub_module("homeassistant.core")
+    exceptions_mod = ensure_stub_module("homeassistant.exceptions")
+    update_coordinator_mod = ensure_stub_module(
+        "homeassistant.helpers.update_coordinator"
+    )
+    dt_mod = ensure_stub_module("homeassistant.util.dt")
 
-            def __init__(self, entry_id: str) -> None:
-                self.entry_id = entry_id
+    class ConfigEntry:
+        """Stub config entry."""
 
-        class HomeAssistant:
-            """Stub Home Assistant object."""
+        def __init__(self, entry_id: str) -> None:
+            self.entry_id = entry_id
 
-        class Platform:
-            """Stub platform enum."""
+    class HomeAssistant:
+        """Stub Home Assistant object."""
 
-            SENSOR = "sensor"
-            BINARY_SENSOR = "binary_sensor"
-            SWITCH = "switch"
-            SELECT = "select"
-            NUMBER = "number"
+    class Platform:
+        """Stub platform enum."""
 
-        class DataUpdateCoordinator:
-            """Stub data coordinator."""
+        SENSOR = "sensor"
+        BINARY_SENSOR = "binary_sensor"
+        SWITCH = "switch"
+        SELECT = "select"
+        NUMBER = "number"
+        TEXT = "text"
 
-        class UpdateFailed(Exception):
-            """Stub update failure."""
+    class DataUpdateCoordinator:
+        """Stub data coordinator."""
 
-        config_entries_mod.ConfigEntry = ConfigEntry
-        const_mod.CONF_PASSWORD = "password"
-        const_mod.CONF_USERNAME = "username"
-        const_mod.Platform = Platform
-        core_mod.HomeAssistant = HomeAssistant
-        update_coordinator_mod.DataUpdateCoordinator = DataUpdateCoordinator
-        update_coordinator_mod.UpdateFailed = UpdateFailed
-        dt_mod.now = lambda: None
+    class UpdateFailed(Exception):
+        """Stub update failure."""
 
-        _install_stub_module(stubbed_modules, "homeassistant", homeassistant)
-        _install_stub_module(stubbed_modules, "homeassistant.helpers", helpers)
-        _install_stub_module(stubbed_modules, "homeassistant.util", util)
-        _install_stub_module(
-            stubbed_modules, "homeassistant.config_entries", config_entries_mod
-        )
-        _install_stub_module(stubbed_modules, "homeassistant.const", const_mod)
-        _install_stub_module(stubbed_modules, "homeassistant.core", core_mod)
-        _install_stub_module(
-            stubbed_modules,
-            "homeassistant.helpers.update_coordinator",
-            update_coordinator_mod,
-        )
-        _install_stub_module(stubbed_modules, "homeassistant.util.dt", dt_mod)
+    class ConfigEntryAuthFailed(Exception):
+        """Stub auth failure."""
+
+    class ConfigEntryNotReady(Exception):
+        """Stub not-ready failure."""
+
+    config_entries_mod.ConfigEntry = ConfigEntry
+    const_mod.CONF_PASSWORD = "password"
+    const_mod.CONF_USERNAME = "username"
+    const_mod.Platform = Platform
+    core_mod.HomeAssistant = HomeAssistant
+    exceptions_mod.ConfigEntryAuthFailed = ConfigEntryAuthFailed
+    exceptions_mod.ConfigEntryNotReady = ConfigEntryNotReady
+    update_coordinator_mod.DataUpdateCoordinator = DataUpdateCoordinator
+    update_coordinator_mod.UpdateFailed = UpdateFailed
+    dt_mod.now = lambda: None
+
+    homeassistant.helpers = helpers
+    homeassistant.util = util
+    helpers.update_coordinator = update_coordinator_mod
+    util.dt = dt_mod
+
 
 def install_package_stubs(stubbed_modules: dict[str, object]) -> None:
     """Install a throwaway package for loading the integration package."""
@@ -217,6 +226,71 @@ finally:
 def tearDownModule() -> None:
     """Restore sys.modules entries replaced by test-only stubs."""
     restore_stubbed_modules(test_package_modules)
+
+
+class DependencyStubInstallerTests(unittest.TestCase):
+    """Verify dependency stubs extend partial Home Assistant installs."""
+
+    def test_install_dependency_stubs_adds_missing_homeassistant_modules(self) -> None:
+        """Pre-existing partial Home Assistant stubs should be completed."""
+        local_stubbed_modules: dict[str, object] = {}
+        homeassistant = types.ModuleType("homeassistant")
+        homeassistant.__path__ = []
+        helpers = types.ModuleType("homeassistant.helpers")
+        helpers.__path__ = []
+
+        _install_stub_module(local_stubbed_modules, "homeassistant", homeassistant)
+        _install_stub_module(
+            local_stubbed_modules, "homeassistant.helpers", helpers
+        )
+
+        try:
+            install_dependency_stubs(local_stubbed_modules)
+
+            self.assertIs(sys.modules["homeassistant"], homeassistant)
+            self.assertIs(homeassistant.helpers, helpers)
+            self.assertTrue(hasattr(sys.modules["homeassistant.const"], "Platform"))
+            self.assertTrue(hasattr(sys.modules["homeassistant.util.dt"], "now"))
+            self.assertTrue(hasattr(helpers, "update_coordinator"))
+        finally:
+            restore_stubbed_modules(local_stubbed_modules)
+
+    def test_api_import_reraises_transitive_socketry_failures(self) -> None:
+        """Missing socketry dependencies should not be masked as a missing package."""
+        local_stubbed_modules: dict[str, object] = {}
+        original_socketry = sys.modules.pop("socketry", _MISSING)
+
+        try:
+            install_dependency_stubs(local_stubbed_modules)
+            original_import = builtins.__import__
+
+            def import_with_transitive_socketry_failure(
+                name, globals=None, locals=None, fromlist=(), level=0
+            ):
+                if name == "socketry":
+                    err = ModuleNotFoundError("No module named 'socketry_dependency'")
+                    err.name = "socketry_dependency"
+                    raise err
+                return original_import(name, globals, locals, fromlist, level)
+
+            with unittest.mock.patch(
+                "builtins.__import__",
+                side_effect=import_with_transitive_socketry_failure,
+            ):
+                with self.assertRaises(ModuleNotFoundError) as raised:
+                    load_module(
+                        "jackery_socketry_import_failure_test",
+                        PACKAGE_ROOT / "api.py",
+                        local_stubbed_modules,
+                    )
+
+            self.assertEqual(raised.exception.name, "socketry_dependency")
+        finally:
+            restore_stubbed_modules(local_stubbed_modules)
+            if original_socketry is _MISSING:
+                sys.modules.pop("socketry", None)
+            else:
+                sys.modules["socketry"] = original_socketry
 
 
 class ControlClientCleanupTests(unittest.IsolatedAsyncioTestCase):
@@ -397,6 +471,25 @@ class ControlClientCleanupTests(unittest.IsolatedAsyncioTestCase):
 
         cached_client.stop.assert_awaited_once()
         self.assertIsNone(jackery_api._control_client)
+
+    async def test_async_set_device_dp_delegates_to_property_writer(self) -> None:
+        """Raw DP writes should reuse the existing property-write path."""
+        jackery_api = api.JackeryAPI("user@example.com", "password")
+        jackery_api.async_set_device_property = AsyncMock()
+
+        await jackery_api.async_set_device_dp(
+            "device-1",
+            "serial-1",
+            108,
+            "22:00-06:00,1111111",
+        )
+
+        jackery_api.async_set_device_property.assert_awaited_once_with(
+            "device-1",
+            "serial-1",
+            "108",
+            "22:00-06:00,1111111",
+        )
 
     async def test_async_close_uses_next_close_method_after_failure(self) -> None:
         """Cleanup should keep trying alternative close methods after failures."""

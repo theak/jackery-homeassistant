@@ -9,7 +9,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-PLATFORM_FILES = ("switch.py", "select.py", "number.py")
+PLATFORM_FILES = ("switch.py", "select.py", "number.py", "text.py")
 
 
 class PlatformDescriptionTests(unittest.TestCase):
