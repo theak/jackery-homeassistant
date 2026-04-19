@@ -798,8 +798,8 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coordinator.updated_data_calls, [])
         self.assertEqual(coordinator.refresh_requests, 0)
 
-    async def test_charging_plan_platforms_wait_for_both_support_keys(self) -> None:
-        """Charging-plan entities should appear once both support DPs are reported."""
+    async def test_charging_plan_platforms_track_support_per_dp(self) -> None:
+        """Charging-plan entities should appear when their specific DP is reported."""
         api = types.SimpleNamespace(async_set_device_dp=AsyncMock(), async_set_device_property=AsyncMock())
         device = dict(self.device_info)
         entry_id = "entry-1"
@@ -823,10 +823,11 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
             return added, coordinator
 
         added, coordinator = await collect_entities(switch, {"107": 1})
-        self.assertEqual([type(entity).__name__ for entity in added], [])
+        self.assertEqual(
+            [type(entity).__name__ for entity in added],
+            ["JackeryChargingPlanSwitchEntity"],
+        )
         coordinator.async_set_updated_data({"107": 1})
-        self.assertEqual([type(entity).__name__ for entity in added], [])
-        coordinator.async_set_updated_data({"107": 1, "108": "22:00-06:00,1111111"})
         self.assertEqual(
             [type(entity).__name__ for entity in added],
             ["JackeryChargingPlanSwitchEntity"],
@@ -844,9 +845,37 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
                 for entity in added
                 if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"
             ],
-            [],
+            ["JackeryChargingPlanRepeatEntity"],
         )
         coordinator.async_set_updated_data({"108": "22:00-06:00,1111111"})
+        self.assertEqual(
+            [
+                type(entity).__name__
+                for entity in added
+                if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"
+            ],
+            ["JackeryChargingPlanRepeatEntity"],
+        )
+        coordinator.async_set_updated_data({"107": 1, "108": "22:00-06:00,1111111"})
+        self.assertEqual(
+            [
+                type(entity).__name__
+                for entity in added
+                if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"
+            ],
+            ["JackeryChargingPlanRepeatEntity"],
+        )
+
+        added, coordinator = await collect_entities(select, {"107": 1})
+        self.assertEqual(
+            [
+                type(entity).__name__
+                for entity in added
+                if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"
+            ],
+            [],
+        )
+        coordinator.async_set_updated_data({"107": 1})
         self.assertEqual(
             [
                 type(entity).__name__
@@ -866,6 +895,15 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         )
 
         added, coordinator = await collect_entities(text, {})
+        self.assertEqual([type(entity).__name__ for entity in added], [])
+        coordinator.async_set_updated_data({"107": 1})
+        self.assertEqual([type(entity).__name__ for entity in added], [])
+        coordinator.async_set_updated_data({"108": "22:00-06:00,1111111"})
+        self.assertEqual(
+            [type(entity).__name__ for entity in added],
+            ["JackeryChargingPlanTimeEntity"],
+        )
+        added, coordinator = await collect_entities(text, {"107": 1})
         self.assertEqual([type(entity).__name__ for entity in added], [])
         coordinator.async_set_updated_data({"107": 1})
         self.assertEqual([type(entity).__name__ for entity in added], [])

@@ -19,7 +19,7 @@ from .api import JackeryAPI
 from .const import CHARGING_PLAN_DATA, DOMAIN
 from .protocol import (
     compose_charging_plan,
-    has_charging_plan_support,
+    has_charging_plan_data_support,
     parse_charging_plan,
 )
 
@@ -52,7 +52,7 @@ async def async_setup_entry(
         if coordinator is None or not device_sn:
             continue
 
-        if has_charging_plan_support(coordinator.data):
+        if has_charging_plan_data_support(coordinator.data):
             entities.append(
                 JackeryChargingPlanTimeEntity(
                     api=api,
@@ -72,7 +72,9 @@ async def async_setup_entry(
 
         def _async_add_charging_plan_entity() -> None:
             nonlocal entity_added
-            if entity_added or not has_charging_plan_support(device_coordinator.data):
+            if entity_added or not has_charging_plan_data_support(
+                device_coordinator.data
+            ):
                 return
 
             entity_added = True
@@ -96,7 +98,7 @@ async def async_setup_entry(
         if coordinator is None or not device_sn:
             continue
 
-        if has_charging_plan_support(coordinator.data):
+        if has_charging_plan_data_support(coordinator.data):
             continue
 
         unsubscribe = coordinator.async_add_listener(
@@ -147,7 +149,7 @@ class JackeryChargingPlanTimeEntity(CoordinatorEntity, TextEntity):
             parent_available = True
         return (
             parent_available
-            and has_charging_plan_support(self.coordinator.data)
+            and has_charging_plan_data_support(self.coordinator.data)
             and self._parsed_value() is not None
         )
 

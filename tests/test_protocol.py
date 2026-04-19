@@ -106,12 +106,27 @@ class ProtocolTests(unittest.TestCase):
         self.assertTrue(protocol.is_supported_property({"sltb": 30}, "sltb"))
         self.assertTrue(protocol.is_supported_property({"slt": 30}, "sltb"))
 
-    def test_charging_plan_support_requires_both_dps(self) -> None:
-        """Charging plans should only surface when both plan DPs are present."""
-        self.assertFalse(protocol.has_charging_plan_support({"107": 1}))
-        self.assertFalse(protocol.has_charging_plan_support({"108": "22:00-06:00,1111111"}))
+    def test_charging_plan_support_is_split_by_dp(self) -> None:
+        """Charging-plan entities should be gated by the DP they actually use."""
+        self.assertTrue(protocol.has_charging_plan_switch_support({"107": 1}))
+        self.assertFalse(
+            protocol.has_charging_plan_switch_support(
+                {"108": "22:00-06:00,1111111"}
+            )
+        )
+        self.assertFalse(protocol.has_charging_plan_data_support({"107": 1}))
         self.assertTrue(
-            protocol.has_charging_plan_support(
+            protocol.has_charging_plan_data_support(
+                {"108": "22:00-06:00,1111111"}
+            )
+        )
+        self.assertTrue(
+            protocol.has_charging_plan_switch_support(
+                {"107": 1, "108": "22:00-06:00,1111111"}
+            )
+        )
+        self.assertTrue(
+            protocol.has_charging_plan_data_support(
                 {"107": 1, "108": "22:00-06:00,1111111"}
             )
         )

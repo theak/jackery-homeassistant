@@ -6,7 +6,7 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![maintainer](https://img.shields.io/badge/maintainer-%40theak-blue.svg)](https://github.com/theak)
-[![version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://github.com/theak/jackery-homeassistant)
+[![version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/theak/jackery-homeassistant)
 
 Custom Home Assistant integration for monitoring and controlling Jackery portable power stations. This integration provides real-time sensor data for your Jackery devices along with writable controls for supported settings and charging plans on supported Jackery Plus models.
 
@@ -94,7 +94,8 @@ The integration creates writable entities only when the corresponding properties
 ## Device-Specific Availability
 
 - Entities are created only when the Jackery API reports the underlying key for that device.
-- Charging-plan entities appear only on devices that report both DP `107` and DP `108`.
+- `Charging Plan` appears when the device reports DP `107`.
+- `Charging Plan Time` and `Charging Plan Repeat` appear when the device reports DP `108`.
 - Devices that split DC control into `odcu` and `odcc` will not show the combined `DC Output` entity.
 - `Parallel Modules Connected` appears only on devices that expose `pmb`.
 - `Charging Plan Time` and `Charging Plan Repeat` become unavailable if the reported DP `108` payload is missing or malformed.
@@ -110,7 +111,7 @@ The integration creates writable entities only when the corresponding properties
 
 HACS installs published version tags from GitHub releases. This repository now publishes a matching GitHub release automatically whenever a semantic version tag is pushed.
 
-If you need fixes that have not been published as a new GitHub release yet, HACS can also install the repository's default branch. This keeps branch installs available even while the latest published release remains `1.0.3`.
+If you need fixes that have not been published as a new GitHub release yet, HACS can also install the repository's default branch. This keeps branch installs available even while the latest published release remains `1.0.4`.
 
 ### Option 2: Manual Installation
 

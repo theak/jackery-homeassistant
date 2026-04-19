@@ -138,13 +138,16 @@ def has_split_dc_outputs(properties: Mapping[str, object] | None) -> bool:
     return "odcu" in keys or "odcc" in keys
 
 
-def has_charging_plan_support(properties: Mapping[str, object] | None) -> bool:
-    """Return whether the device reports both charging-plan DPs."""
+def has_charging_plan_switch_support(properties: Mapping[str, object] | None) -> bool:
+    """Return whether the device reports the charging-plan switch DP."""
     keys = _property_keys(properties)
-    return {
-        CHARGING_PLAN_SWITCH_DP,
-        CHARGING_PLAN_DATA_DP,
-    }.issubset(keys)
+    return CHARGING_PLAN_SWITCH_DP in keys
+
+
+def has_charging_plan_data_support(properties: Mapping[str, object] | None) -> bool:
+    """Return whether the device reports the charging-plan data DP."""
+    keys = _property_keys(properties)
+    return CHARGING_PLAN_DATA_DP in keys
 
 
 def parse_charging_plan(value: object) -> tuple[str, str] | None:

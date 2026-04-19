@@ -17,7 +17,11 @@ from homeassistant.helpers.update_coordinator import (
 
 from .api import JackeryAPI
 from .const import CHARGING_PLAN_SWITCH, DOMAIN
-from .protocol import control_spec, has_charging_plan_support, supported_keys
+from .protocol import (
+    control_spec,
+    has_charging_plan_switch_support,
+    supported_keys,
+)
 
 SWITCH_KEYS = ("oac", "odc", "odcu", "odcc", "sfc")
 SWITCH_DESCRIPTIONS: dict[str, EntityDescription] = {
@@ -64,7 +68,7 @@ async def async_setup_entry(
                     device_info=device,
                 )
             )
-        if has_charging_plan_support(coordinator.data):
+        if has_charging_plan_switch_support(coordinator.data):
             entities.append(
                 JackeryChargingPlanSwitchEntity(
                     api=api,
@@ -84,7 +88,9 @@ async def async_setup_entry(
 
         def _async_add_charging_plan_entity() -> None:
             nonlocal entity_added
-            if entity_added or not has_charging_plan_support(device_coordinator.data):
+            if entity_added or not has_charging_plan_switch_support(
+                device_coordinator.data
+            ):
                 return
 
             entity_added = True
@@ -108,7 +114,7 @@ async def async_setup_entry(
         if coordinator is None or not device_sn:
             continue
 
-        if has_charging_plan_support(coordinator.data):
+        if has_charging_plan_switch_support(coordinator.data):
             continue
 
         unsubscribe = coordinator.async_add_listener(
@@ -220,7 +226,9 @@ class JackeryChargingPlanSwitchEntity(CoordinatorEntity, SwitchEntity):
             parent_available = super().available
         except AttributeError:
             parent_available = True
-        return parent_available and has_charging_plan_support(self.coordinator.data)
+        return parent_available and has_charging_plan_switch_support(
+            self.coordinator.data
+        )
 
     @property
     def is_on(self) -> bool | None:
