@@ -65,6 +65,8 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     switch_mod = ensure_module("homeassistant.components.switch")
     select_mod = ensure_module("homeassistant.components.select")
     number_mod = ensure_module("homeassistant.components.number")
+    sensor_mod = ensure_module("homeassistant.components.sensor")
+    binary_sensor_mod = ensure_module("homeassistant.components.binary_sensor")
     text_mod = ensure_module("homeassistant.components.text")
     config_entries_mod = ensure_module("homeassistant.config_entries")
     const_mod = ensure_module("homeassistant.const")
@@ -82,6 +84,12 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
 
     class NumberEntity:
         """Stub number entity."""
+
+    class SensorEntity:
+        """Stub sensor entity."""
+
+    class BinarySensorEntity:
+        """Stub binary sensor entity."""
 
     class TextEntity:
         """Stub text entity."""
@@ -122,6 +130,69 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
         name: str | None = None
         icon: str | None = None
 
+    @dataclass
+    class SensorEntityDescription(EntityDescription):
+        """Stub sensor entity description."""
+
+        native_unit_of_measurement: str | None = None
+        device_class: str | None = None
+        state_class: str | None = None
+        entity_category: str | None = None
+
+    @dataclass
+    class BinarySensorEntityDescription(EntityDescription):
+        """Stub binary sensor entity description."""
+
+        device_class: str | None = None
+        entity_category: str | None = None
+
+    class SensorDeviceClass:
+        """Stub sensor device class enum."""
+
+        BATTERY = "battery"
+        DURATION = "duration"
+        FREQUENCY = "frequency"
+        POWER = "power"
+        TEMPERATURE = "temperature"
+        TIMESTAMP = "timestamp"
+        VOLTAGE = "voltage"
+
+    class BinarySensorDeviceClass:
+        """Stub binary sensor device class enum."""
+
+        POWER = "power"
+        PROBLEM = "problem"
+
+    class SensorStateClass:
+        """Stub sensor state class enum."""
+
+        MEASUREMENT = "measurement"
+
+    class EntityCategory:
+        """Stub entity category enum."""
+
+        DIAGNOSTIC = "diagnostic"
+
+    class UnitOfElectricPotential:
+        """Stub voltage unit enum."""
+
+        VOLT = "V"
+
+    class UnitOfFrequency:
+        """Stub frequency unit enum."""
+
+        HERTZ = "Hz"
+
+    class UnitOfPower:
+        """Stub power unit enum."""
+
+        WATT = "W"
+
+    class UnitOfTemperature:
+        """Stub temperature unit enum."""
+
+        CELSIUS = "degC"
+
     class CoordinatorEntity:
         """Stub coordinator entity that tracks direct state writes."""
 
@@ -143,14 +214,28 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
         """Stub unit enum."""
 
         MINUTES = "min"
+        HOURS = "h"
 
     switch_mod.SwitchEntity = SwitchEntity
     select_mod.SelectEntity = SelectEntity
     number_mod.NumberEntity = NumberEntity
+    sensor_mod.SensorEntity = SensorEntity
+    sensor_mod.SensorEntityDescription = SensorEntityDescription
+    sensor_mod.SensorDeviceClass = SensorDeviceClass
+    sensor_mod.SensorStateClass = SensorStateClass
+    binary_sensor_mod.BinarySensorEntity = BinarySensorEntity
+    binary_sensor_mod.BinarySensorEntityDescription = BinarySensorEntityDescription
+    binary_sensor_mod.BinarySensorDeviceClass = BinarySensorDeviceClass
     number_mod.NumberMode = NumberMode
     text_mod.TextEntity = TextEntity
     text_mod.TextMode = TextMode
     config_entries_mod.ConfigEntry = ConfigEntry
+    const_mod.EntityCategory = EntityCategory
+    const_mod.PERCENTAGE = "%"
+    const_mod.UnitOfElectricPotential = UnitOfElectricPotential
+    const_mod.UnitOfFrequency = UnitOfFrequency
+    const_mod.UnitOfPower = UnitOfPower
+    const_mod.UnitOfTemperature = UnitOfTemperature
     const_mod.UnitOfTime = UnitOfTime
     core_mod.HomeAssistant = HomeAssistant
     exceptions_mod.HomeAssistantError = HomeAssistantError
@@ -165,6 +250,8 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     components.switch = switch_mod
     components.select = select_mod
     components.number = number_mod
+    components.sensor = sensor_mod
+    components.binary_sensor = binary_sensor_mod
     components.text = text_mod
     helpers.entity = entity_mod
     helpers.entity_platform = entity_platform_mod
@@ -181,24 +268,33 @@ def install_package_stubs(stubbed_modules: dict[str, object]) -> None:
     class JackeryAPI:
         """Stub Jackery API type."""
 
-    const_mod = types.ModuleType(f"{TEST_PACKAGE}.const")
-    const_mod.DOMAIN = "jackery"
-    const_mod.CHARGING_PLAN_SWITCH = "107"
-    const_mod.CHARGING_PLAN_DATA = "108"
-
     api_mod.JackeryAPI = JackeryAPI
 
     _install_stub_module(stubbed_modules, TEST_PACKAGE, package_mod)
     _install_stub_module(stubbed_modules, f"{TEST_PACKAGE}.api", api_mod)
-    _install_stub_module(stubbed_modules, f"{TEST_PACKAGE}.const", const_mod)
 
 
 stubbed_modules: dict[str, object] = {}
 install_homeassistant_stubs(stubbed_modules)
 install_package_stubs(stubbed_modules)
 load_module(
+    f"{TEST_PACKAGE}.const",
+    PACKAGE_ROOT / "const.py",
+    stubbed_modules,
+)
+load_module(
     f"{TEST_PACKAGE}.protocol",
     PACKAGE_ROOT / "protocol.py",
+    stubbed_modules,
+)
+sensor = load_module(
+    f"{TEST_PACKAGE}.sensor",
+    PACKAGE_ROOT / "sensor.py",
+    stubbed_modules,
+)
+binary_sensor = load_module(
+    f"{TEST_PACKAGE}.binary_sensor",
+    PACKAGE_ROOT / "binary_sensor.py",
     stubbed_modules,
 )
 switch = load_module(
@@ -392,6 +488,127 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(coordinator.updated_data_calls, [{"pm": 1440}])
         self.assertEqual(entity.native_value, 1440.0)
+
+    async def test_read_only_platforms_add_late_supported_entities(self) -> None:
+        """Sensors and binary sensors should appear when their keys arrive later."""
+        device = dict(self.device_info)
+        entry_id = "entry-1"
+
+        async def collect_entities(module, coordinator_data):
+            added: list[object] = []
+            coordinator = TrackingCoordinator(coordinator_data)
+            hass = types.SimpleNamespace(
+                data={
+                    "jackery": {
+                        entry_id: {
+                            "coordinators": {"device-1": coordinator},
+                            "devices": [device],
+                        }
+                    }
+                }
+            )
+            entry = types.SimpleNamespace(entry_id=entry_id)
+            await module.async_setup_entry(hass, entry, added.extend)
+            return added, coordinator
+
+        added, coordinator = await collect_entities(sensor, {"rb": 80})
+        self.assertEqual([entity.entity_description.key for entity in added], ["rb"])
+        coordinator.async_set_updated_data(
+            {
+                "rb": 80,
+                "bs": 1,
+                "cip": 145,
+                "acohz": 50,
+                "ec": 0,
+            }
+        )
+        self.assertEqual(
+            [entity.entity_description.key for entity in added],
+            ["rb", "cip", "acohz", "ec", "bs"],
+        )
+        coordinator.async_set_updated_data(
+            {
+                "rb": 80,
+                "bs": 1,
+                "cip": 145,
+                "acohz": 50,
+                "ec": 0,
+                "pmb": 1,
+            }
+        )
+        self.assertEqual(
+            [entity.entity_description.key for entity in added],
+            ["rb", "cip", "acohz", "ec", "bs", "pmb"],
+        )
+        coordinator.async_set_updated_data(
+            {
+                "rb": 80,
+                "bs": 1,
+                "cip": 145,
+                "acohz": 50,
+                "ec": 0,
+                "pmb": 1,
+            }
+        )
+        self.assertEqual(
+            [entity.entity_description.key for entity in added],
+            ["rb", "cip", "acohz", "ec", "bs", "pmb"],
+        )
+
+        added, coordinator = await collect_entities(binary_sensor, {"oac": 1})
+        self.assertEqual([entity.entity_description.key for entity in added], ["oac"])
+        coordinator.async_set_updated_data({"oac": 1, "ta": 0})
+        self.assertEqual(
+            [entity.entity_description.key for entity in added],
+            ["oac", "ta"],
+        )
+        coordinator.async_set_updated_data({"oac": 1, "ta": 0, "pal": 1})
+        self.assertEqual(
+            [entity.entity_description.key for entity in added],
+            ["oac", "ta", "pal"],
+        )
+
+    async def test_read_only_late_entities_track_each_device_independently(self) -> None:
+        """Late read-only entity registration should be isolated per device."""
+        coordinator_one = TrackingCoordinator({})
+        coordinator_two = TrackingCoordinator({})
+        added: list[object] = []
+        hass = types.SimpleNamespace(
+            data={
+                "jackery": {
+                    "entry-1": {
+                        "coordinators": {
+                            "device-1": coordinator_one,
+                            "device-2": coordinator_two,
+                        },
+                        "devices": [
+                            dict(self.device_info),
+                            {
+                                **self.device_info,
+                                "devId": "device-2",
+                                "devSn": "serial-2",
+                                "devName": "Jackery Explorer 2",
+                            },
+                        ],
+                    }
+                }
+            }
+        )
+        entry = types.SimpleNamespace(entry_id="entry-1")
+
+        await sensor.async_setup_entry(hass, entry, added.extend)
+
+        coordinator_one.async_set_updated_data({"bs": 1})
+        self.assertEqual(
+            [(entity._device_id, entity.entity_description.key) for entity in added],
+            [("device-1", "bs")],
+        )
+
+        coordinator_two.async_set_updated_data({"bs": 2, "acohz": 50})
+        self.assertEqual(
+            [(entity._device_id, entity.entity_description.key) for entity in added],
+            [("device-1", "bs"), ("device-2", "acohz"), ("device-2", "bs")],
+        )
 
     async def test_charging_plan_switch_updates_coordinator_snapshot(self) -> None:
         """Charging-plan switch writes should use the raw DP helper."""

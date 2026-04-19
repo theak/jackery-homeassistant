@@ -30,18 +30,57 @@ async def async_setup_entry(
     devices: list[dict] = entry_data["devices"]
 
     entities = []
+    registered_keys_by_device: dict[str, set[str]] = {}
     for device in devices:
         device_id = device["devId"]
         if device_id in coordinators:
             coordinator = coordinators[device_id]
+            registered_keys = registered_keys_by_device.setdefault(device_id, set())
             # Create entities for all binary sensor descriptions
             for description in BINARY_SENSOR_DESCRIPTIONS:
                 if is_supported_property(coordinator.data, description.key):
+                    registered_keys.add(description.key)
                     entities.append(
                         JackeryBinarySensor(coordinator, description, device)
                     )
 
     async_add_entities(entities)
+
+    def _build_binary_sensor_listener(
+        device_info: dict,
+        device_coordinator: DataUpdateCoordinator,
+        registered_keys: set[str],
+    ):
+        def _async_add_supported_binary_sensors() -> None:
+            new_entities = []
+            for description in BINARY_SENSOR_DESCRIPTIONS:
+                if description.key in registered_keys:
+                    continue
+                if not is_supported_property(device_coordinator.data, description.key):
+                    continue
+
+                registered_keys.add(description.key)
+                new_entities.append(
+                    JackeryBinarySensor(device_coordinator, description, device_info)
+                )
+
+            if new_entities:
+                async_add_entities(new_entities)
+
+        return _async_add_supported_binary_sensors
+
+    for device in devices:
+        device_id = device["devId"]
+        coordinator = coordinators.get(device_id)
+        if coordinator is None:
+            continue
+
+        registered_keys = registered_keys_by_device.setdefault(device_id, set())
+        unsubscribe = coordinator.async_add_listener(
+            _build_binary_sensor_listener(device, coordinator, registered_keys)
+        )
+        if hasattr(config_entry, "async_on_unload"):
+            config_entry.async_on_unload(unsubscribe)
 
 
 class JackeryBinarySensor(CoordinatorEntity, BinarySensorEntity):
