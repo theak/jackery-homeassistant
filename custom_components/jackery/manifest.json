@@ -1,7 +1,7 @@
 {
     "domain": "jackery",
     "name": "Jackery",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "documentation": "https://github.com/theak/jackery-homeassistant/blob/main/README.md",
     "issue_tracker": "https://github.com/theak/jackery-homeassistant/issues",
     "codeowners": ["@theak"],
