@@ -26,13 +26,13 @@ class MetadataTests(unittest.TestCase):
         """Manifest links should resolve to this repository."""
         self.assertEqual(
             self.manifest["documentation"],
-            "https://github.com/usersaynoso/jackery-homeassistant/blob/main/README.md",
+            "https://github.com/theak/jackery-homeassistant/blob/main/README.md",
         )
         self.assertEqual(
             self.manifest["issue_tracker"],
-            "https://github.com/usersaynoso/jackery-homeassistant/issues",
+            "https://github.com/theak/jackery-homeassistant/issues",
         )
-        self.assertEqual(self.manifest["codeowners"], ["@usersaynoso"])
+        self.assertEqual(self.manifest["codeowners"], ["@theak"])
 
     def test_readme_version_badge_matches_manifest(self) -> None:
         """README badge should advertise the same release as the manifest."""
@@ -50,9 +50,9 @@ class MetadataTests(unittest.TestCase):
             self.readme,
         )
 
-    def test_repository_files_do_not_reference_legacy_repo(self) -> None:
-        """The published metadata should not point at the archived upstream fork."""
-        legacy_repo = "theak/jackery-homeassistant"
+    def test_repository_files_do_not_reference_fork_links(self) -> None:
+        """The published metadata should not point at the temporary contributor fork."""
+        legacy_repo = "usersaynoso/jackery-homeassistant"
         checked_files = [
             MANIFEST_PATH,
             README_PATH,

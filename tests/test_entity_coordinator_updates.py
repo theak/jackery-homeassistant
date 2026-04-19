@@ -235,13 +235,25 @@ class TrackingCoordinator:
         self.data = data
         self.updated_data_calls: list[dict[str, object]] = []
         self.refresh_requests = 0
+        self.listeners: list[object] = []
 
     def async_set_updated_data(self, data: dict[str, object]) -> None:
         self.updated_data_calls.append(data)
         self.data = data
+        for listener in tuple(self.listeners):
+            listener()
 
     async def async_request_refresh(self) -> None:
         self.refresh_requests += 1
+
+    def async_add_listener(self, listener):
+        self.listeners.append(listener)
+
+        def _remove_listener() -> None:
+            if listener in self.listeners:
+                self.listeners.remove(listener)
+
+        return _remove_listener
 
 
 class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
@@ -569,20 +581,21 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coordinator.updated_data_calls, [])
         self.assertEqual(coordinator.refresh_requests, 0)
 
-    async def test_charging_plan_platforms_require_both_support_keys(self) -> None:
-        """Charging-plan entities should only be created when both DPs are present."""
+    async def test_charging_plan_platforms_wait_for_both_support_keys(self) -> None:
+        """Charging-plan entities should appear once both support DPs are reported."""
         api = types.SimpleNamespace(async_set_device_dp=AsyncMock(), async_set_device_property=AsyncMock())
         device = dict(self.device_info)
         entry_id = "entry-1"
 
         async def collect_entities(module, coordinator_data):
             added: list[object] = []
+            coordinator = TrackingCoordinator(coordinator_data)
             hass = types.SimpleNamespace(
                 data={
                     "jackery": {
                         entry_id: {
                             "api": api,
-                            "coordinators": {"device-1": TrackingCoordinator(coordinator_data)},
+                            "coordinators": {"device-1": coordinator},
                             "devices": [device],
                         }
                     }
@@ -590,19 +603,106 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
             )
             entry = types.SimpleNamespace(entry_id=entry_id)
             await module.async_setup_entry(hass, entry, added.extend)
-            return added
+            return added, coordinator
 
+        added, coordinator = await collect_entities(switch, {"107": 1})
+        self.assertEqual([type(entity).__name__ for entity in added], [])
+        coordinator.async_set_updated_data({"107": 1})
+        self.assertEqual([type(entity).__name__ for entity in added], [])
+        coordinator.async_set_updated_data({"107": 1, "108": "22:00-06:00,1111111"})
         self.assertEqual(
-            [type(entity).__name__ for entity in await collect_entities(switch, {"107": 1})],
+            [type(entity).__name__ for entity in added],
+            ["JackeryChargingPlanSwitchEntity"],
+        )
+        coordinator.async_set_updated_data({"107": 1, "108": "23:00-05:00,1111111"})
+        self.assertEqual(
+            [type(entity).__name__ for entity in added],
+            ["JackeryChargingPlanSwitchEntity"],
+        )
+
+        added, coordinator = await collect_entities(select, {"108": "22:00-06:00,1111111"})
+        self.assertEqual(
+            [
+                type(entity).__name__
+                for entity in added
+                if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"
+            ],
             [],
         )
+        coordinator.async_set_updated_data({"108": "22:00-06:00,1111111"})
         self.assertEqual(
-            [type(entity).__name__ for entity in await collect_entities(select, {"108": "22:00-06:00,1111111"}) if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"],
+            [
+                type(entity).__name__
+                for entity in added
+                if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"
+            ],
             [],
         )
+        coordinator.async_set_updated_data({"107": 1, "108": "22:00-06:00,1111111"})
         self.assertEqual(
-            [type(entity).__name__ for entity in await collect_entities(text, {"107": 1, "108": "22:00-06:00,1111111"})],
+            [
+                type(entity).__name__
+                for entity in added
+                if type(entity).__name__ == "JackeryChargingPlanRepeatEntity"
+            ],
+            ["JackeryChargingPlanRepeatEntity"],
+        )
+
+        added, coordinator = await collect_entities(text, {})
+        self.assertEqual([type(entity).__name__ for entity in added], [])
+        coordinator.async_set_updated_data({"107": 1})
+        self.assertEqual([type(entity).__name__ for entity in added], [])
+        coordinator.async_set_updated_data({"107": 1, "108": "22:00-06:00,1111111"})
+        self.assertEqual(
+            [type(entity).__name__ for entity in added],
             ["JackeryChargingPlanTimeEntity"],
+        )
+
+    async def test_deferred_charging_plan_entities_track_each_device_independently(self) -> None:
+        """Late charging-plan discovery should add one entity per supporting device."""
+        api = types.SimpleNamespace(
+            async_set_device_dp=AsyncMock(),
+            async_set_device_property=AsyncMock(),
+        )
+        coordinator_one = TrackingCoordinator({})
+        coordinator_two = TrackingCoordinator({})
+        added: list[object] = []
+        hass = types.SimpleNamespace(
+            data={
+                "jackery": {
+                    "entry-1": {
+                        "api": api,
+                        "coordinators": {
+                            "device-1": coordinator_one,
+                            "device-2": coordinator_two,
+                        },
+                        "devices": [
+                            dict(self.device_info),
+                            {
+                                **self.device_info,
+                                "devId": "device-2",
+                                "devSn": "serial-2",
+                                "devName": "Jackery Explorer 2",
+                            },
+                        ],
+                    }
+                }
+            }
+        )
+        entry = types.SimpleNamespace(entry_id="entry-1")
+
+        await switch.async_setup_entry(hass, entry, added.extend)
+
+        coordinator_one.async_set_updated_data({"107": 1, "108": "22:00-06:00,1111111"})
+        self.assertEqual(
+            [entity._device_id for entity in added],
+            ["device-1"],
+        )
+
+        coordinator_two.async_set_updated_data({"107": 1, "108": "22:00-06:00,1111111"})
+        self.assertEqual(
+            [entity._device_id for entity in added],
+            ["device-1", "device-2"],
         )
 
 

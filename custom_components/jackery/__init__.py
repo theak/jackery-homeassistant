@@ -67,13 +67,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async def _async_update_data(api_client=api, dev_id=device_id):
             """Fetch data from API endpoint."""
             try:
-                async with asyncio.timeout(10):
-                    data = await hass.async_add_executor_job(
-                        api_client.get_device_detail, dev_id
-                    )
-                    properties = dict(data.get("data", {}).get("properties", {}))
-                    properties["last_updated"] = dt_util.now()
-                    return properties
+                data = await asyncio.wait_for(
+                    hass.async_add_executor_job(api_client.get_device_detail, dev_id),
+                    timeout=10,
+                )
+                properties = dict(data.get("data", {}).get("properties", {}))
+                properties["last_updated"] = dt_util.now()
+                return properties
             except JackeryAuthenticationError as err:
                 raise ConfigEntryAuthFailed(
                     f"Authentication failed while refreshing Jackery device {dev_id}: {err}"

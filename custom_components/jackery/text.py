@@ -64,6 +64,47 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
+    def _build_charging_plan_listener(
+        device_info: dict,
+        device_coordinator: DataUpdateCoordinator,
+    ):
+        entity_added = False
+
+        def _async_add_charging_plan_entity() -> None:
+            nonlocal entity_added
+            if entity_added or not has_charging_plan_support(device_coordinator.data):
+                return
+
+            entity_added = True
+            async_add_entities(
+                [
+                    JackeryChargingPlanTimeEntity(
+                        api=api,
+                        coordinator=device_coordinator,
+                        description=CHARGING_PLAN_TIME_DESCRIPTION,
+                        device_info=device_info,
+                    )
+                ]
+            )
+
+        return _async_add_charging_plan_entity
+
+    for device in devices:
+        device_id = device["devId"]
+        coordinator = coordinators.get(device_id)
+        device_sn = device.get("devSn")
+        if coordinator is None or not device_sn:
+            continue
+
+        if has_charging_plan_support(coordinator.data):
+            continue
+
+        unsubscribe = coordinator.async_add_listener(
+            _build_charging_plan_listener(device, coordinator)
+        )
+        if hasattr(config_entry, "async_on_unload"):
+            config_entry.async_on_unload(unsubscribe)
+
 
 class JackeryChargingPlanTimeEntity(CoordinatorEntity, TextEntity):
     """Text entity for the charging-plan time-range segment."""
