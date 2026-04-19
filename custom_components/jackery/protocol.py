@@ -120,9 +120,18 @@ CHARGING_PLAN_REPEAT_TO_MASK: dict[str, str] = {
 CHARGING_PLAN_MASK_TO_REPEAT: dict[str, str] = {
     mask: option for option, mask in CHARGING_PLAN_REPEAT_TO_MASK.items()
 }
+KNOWN_CHARGING_PLAN_MODELS = frozenset(
+    {
+        "homepower 3000",
+        "homepower 3600 plus",
+        "explorer 3000 v2",
+        "explorer 5000 plus",
+    }
+)
 _CHARGING_PLAN_TIME_RANGE = re.compile(
     r"^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$"
 )
+_MODEL_NAME_SANITIZER = re.compile(r"[^a-z0-9]+")
 
 
 def _property_keys(properties: Mapping[str, object] | None) -> set[str]:
@@ -132,22 +141,53 @@ def _property_keys(properties: Mapping[str, object] | None) -> set[str]:
     return {str(key) for key in properties}
 
 
+def _normalize_model_name(value: object) -> str:
+    """Normalize a device model name for capability matching."""
+    if not isinstance(value, str):
+        return ""
+
+    normalized = _MODEL_NAME_SANITIZER.sub(" ", value.casefold())
+    return " ".join(normalized.split())
+
+
+def has_known_charging_plan_model(device_info: Mapping[str, object] | None) -> bool:
+    """Return whether the device model is known to support charging plans."""
+    if not device_info:
+        return False
+
+    for key in ("productType", "devName", "devNickname", "modelName", "deviceName"):
+        if _normalize_model_name(device_info.get(key)) in KNOWN_CHARGING_PLAN_MODELS:
+            return True
+
+    return False
+
+
 def has_split_dc_outputs(properties: Mapping[str, object] | None) -> bool:
     """Return whether the device reports separate USB or car output keys."""
     keys = _property_keys(properties)
     return "odcu" in keys or "odcc" in keys
 
 
-def has_charging_plan_switch_support(properties: Mapping[str, object] | None) -> bool:
+def has_charging_plan_switch_support(
+    properties: Mapping[str, object] | None,
+    device_info: Mapping[str, object] | None = None,
+) -> bool:
     """Return whether the device reports the charging-plan switch DP."""
     keys = _property_keys(properties)
-    return CHARGING_PLAN_SWITCH_DP in keys
+    return CHARGING_PLAN_SWITCH_DP in keys or has_known_charging_plan_model(
+        device_info
+    )
 
 
-def has_charging_plan_data_support(properties: Mapping[str, object] | None) -> bool:
+def has_charging_plan_data_support(
+    properties: Mapping[str, object] | None,
+    device_info: Mapping[str, object] | None = None,
+) -> bool:
     """Return whether the device reports the charging-plan data DP."""
     keys = _property_keys(properties)
-    return CHARGING_PLAN_DATA_DP in keys
+    return CHARGING_PLAN_DATA_DP in keys or has_known_charging_plan_model(
+        device_info
+    )
 
 
 def parse_charging_plan(value: object) -> tuple[str, str] | None:

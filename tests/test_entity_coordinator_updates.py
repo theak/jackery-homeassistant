@@ -913,6 +913,58 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
             ["JackeryChargingPlanTimeEntity"],
         )
 
+    async def test_supported_models_create_charging_plan_entities_without_dps(self) -> None:
+        """Known compatible models should expose charging-plan entities before DPs appear."""
+        api = types.SimpleNamespace(
+            async_set_device_dp=AsyncMock(),
+            async_set_device_property=AsyncMock(),
+        )
+        entry_id = "entry-1"
+        device = {
+            **self.device_info,
+            "devName": "Explorer 5000 Plus",
+            "productType": "Explorer 5000 Plus",
+        }
+
+        async def collect_entities(module):
+            added: list[object] = []
+            coordinator = TrackingCoordinator({})
+            hass = types.SimpleNamespace(
+                data={
+                    "jackery": {
+                        entry_id: {
+                            "api": api,
+                            "coordinators": {"device-1": coordinator},
+                            "devices": [device],
+                        }
+                    }
+                }
+            )
+            entry = types.SimpleNamespace(entry_id=entry_id)
+            await module.async_setup_entry(hass, entry, added.extend)
+            return added
+
+        added = await collect_entities(switch)
+        self.assertEqual(
+            [type(entity).__name__ for entity in added],
+            ["JackeryChargingPlanSwitchEntity"],
+        )
+        self.assertTrue(added[0].available)
+
+        added = await collect_entities(select)
+        self.assertEqual(
+            [type(entity).__name__ for entity in added],
+            ["JackeryChargingPlanRepeatEntity"],
+        )
+        self.assertFalse(added[0].available)
+
+        added = await collect_entities(text)
+        self.assertEqual(
+            [type(entity).__name__ for entity in added],
+            ["JackeryChargingPlanTimeEntity"],
+        )
+        self.assertFalse(added[0].available)
+
     async def test_deferred_charging_plan_entities_track_each_device_independently(self) -> None:
         """Late charging-plan discovery should add one entity per supporting device."""
         api = types.SimpleNamespace(

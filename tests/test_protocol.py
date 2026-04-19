@@ -131,6 +131,17 @@ class ProtocolTests(unittest.TestCase):
             )
         )
 
+    def test_known_charging_plan_models_support_entities_without_dps(self) -> None:
+        """Known compatible models should surface charging-plan entities without DP hints."""
+        device_info = {"devName": "Explorer 5000 Plus"}
+
+        self.assertTrue(protocol.has_known_charging_plan_model(device_info))
+        self.assertTrue(protocol.has_charging_plan_switch_support({}, device_info))
+        self.assertTrue(protocol.has_charging_plan_data_support({}, device_info))
+        self.assertFalse(
+            protocol.has_known_charging_plan_model({"devName": "Explorer 2000 Plus"})
+        )
+
     def test_parse_and_compose_charging_plan(self) -> None:
         """Charging-plan helpers should preserve valid payloads."""
         self.assertEqual(

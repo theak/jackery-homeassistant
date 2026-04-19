@@ -68,7 +68,7 @@ async def async_setup_entry(
                     device_info=device,
                 )
             )
-        if has_charging_plan_switch_support(coordinator.data):
+        if has_charging_plan_switch_support(coordinator.data, device):
             entities.append(
                 JackeryChargingPlanSwitchEntity(
                     api=api,
@@ -89,7 +89,8 @@ async def async_setup_entry(
         def _async_add_charging_plan_entity() -> None:
             nonlocal entity_added
             if entity_added or not has_charging_plan_switch_support(
-                device_coordinator.data
+                device_coordinator.data,
+                device_info,
             ):
                 return
 
@@ -114,7 +115,7 @@ async def async_setup_entry(
         if coordinator is None or not device_sn:
             continue
 
-        if has_charging_plan_switch_support(coordinator.data):
+        if has_charging_plan_switch_support(coordinator.data, device):
             continue
 
         unsubscribe = coordinator.async_add_listener(
@@ -143,6 +144,7 @@ class JackerySwitchEntity(CoordinatorEntity, SwitchEntity):
         self._slug = control_spec(description.key).slug
         self._device_id = device_info["devId"]
         self._device_sn = device_info["devSn"]
+        self._device_info = device_info
         self._attr_unique_id = f"{self._device_id}_switch_{description.key}"
         self._attr_name = description.name
         self._attr_icon = description.icon
@@ -209,6 +211,7 @@ class JackeryChargingPlanSwitchEntity(CoordinatorEntity, SwitchEntity):
         self._api = api
         self._device_id = device_info["devId"]
         self._device_sn = device_info["devSn"]
+        self._device_info = device_info
         self._attr_unique_id = f"{self._device_id}_switch_{description.key}"
         self._attr_name = description.name
         self._attr_icon = description.icon
@@ -227,7 +230,8 @@ class JackeryChargingPlanSwitchEntity(CoordinatorEntity, SwitchEntity):
         except AttributeError:
             parent_available = True
         return parent_available and has_charging_plan_switch_support(
-            self.coordinator.data
+            self.coordinator.data,
+            self._device_info,
         )
 
     @property

@@ -77,7 +77,7 @@ async def async_setup_entry(
                     device_info=device,
                 )
             )
-        if has_charging_plan_data_support(coordinator.data):
+        if has_charging_plan_data_support(coordinator.data, device):
             entities.append(
                 JackeryChargingPlanRepeatEntity(
                     api=api,
@@ -98,7 +98,8 @@ async def async_setup_entry(
         def _async_add_charging_plan_entity() -> None:
             nonlocal entity_added
             if entity_added or not has_charging_plan_data_support(
-                device_coordinator.data
+                device_coordinator.data,
+                device_info,
             ):
                 return
 
@@ -123,7 +124,7 @@ async def async_setup_entry(
         if coordinator is None or not device_sn:
             continue
 
-        if has_charging_plan_data_support(coordinator.data):
+        if has_charging_plan_data_support(coordinator.data, device):
             continue
 
         unsubscribe = coordinator.async_add_listener(
@@ -221,6 +222,7 @@ class JackeryChargingPlanRepeatEntity(CoordinatorEntity, SelectEntity):
         self._api = api
         self._device_id = device_info["devId"]
         self._device_sn = device_info["devSn"]
+        self._device_info = device_info
         self._attr_unique_id = f"{self._device_id}_charging_plan_repeat"
         self._attr_name = description.name
         self._attr_icon = description.icon
@@ -241,7 +243,10 @@ class JackeryChargingPlanRepeatEntity(CoordinatorEntity, SelectEntity):
             parent_available = True
         return (
             parent_available
-            and has_charging_plan_data_support(self.coordinator.data)
+            and has_charging_plan_data_support(
+                self.coordinator.data,
+                self._device_info,
+            )
             and self._parsed_value() is not None
         )
 
