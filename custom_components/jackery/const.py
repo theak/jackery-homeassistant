@@ -160,6 +160,14 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TIMESTAMP,
         icon="mdi:clock",
     ),
+        JackerySensorEntityDescription(
+        key="acpsp",
+        name="AC Power Solar Panel",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value=lambda value: value / 10.0,
+    ),
 )
 
 # Binary sensor descriptions
