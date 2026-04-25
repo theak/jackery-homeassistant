@@ -50,6 +50,7 @@ Custom Home Assistant integration for monitoring and controlling Jackery portabl
 | USB Output        | USB output status                 |
 | Temperature Alarm | Device temperature alarm status   |
 | Power Alarm       | Device power/protection alarm     |
+| UPS Mode          | Device UPS Mode status            |
 
 **Note:** Different Jackery device models may report different combinations of DC output sensors. Some models use a combined `odc` parameter while others use separate `odcc` and `odcu` parameters. The integration hides the combined DC entity when split USB/car output keys are available.
 
