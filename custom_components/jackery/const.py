@@ -215,4 +215,10 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
         icon="mdi:alert-octagon-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    BinarySensorEntityDescription(
+        key="ups",
+        name="UPS Mode",
+        device_class=BinarySensorDeviceClass.POWER,
+        icon="mdi:power-plug-battery",
+    ),
 )
