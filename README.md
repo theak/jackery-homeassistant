@@ -26,12 +26,14 @@ Custom Home Assistant integration for monitoring and controlling Jackery portabl
 | Sensor                     | Description                                 | Unit     |
 | -------------------------- | ------------------------------------------- | -------- |
 | Remaining Battery          | Current battery level                       | %        |
+| Battery Reserve            | Battery percentage reserved for lost power  | %        | 
 | Battery Temperature        | Battery temperature                         | °C       |
 | Battery Status             | Idle, Charging, Discharging, or Fault       | text     |
 | Output Power               | Current power output                        | W        |
 | Total Input Power          | Current total power input                   | W        |
 | AC Input Power             | Current AC input power                      | W        |
 | DC Input Power             | Current DC/car input power                  | W        |
+| Solar Panel Input Power    | Current Solar Panel input power             | W        |
 | Time to Full               | Estimated time to full charge               | hours    |
 | Remaining Output Time      | Estimated remaining runtime                 | hours    |
 | AC Output Voltage          | Current AC output voltage                   | V        |
