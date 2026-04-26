@@ -70,6 +70,13 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
     ),
     JackerySensorEntityDescription(
+        key="ddt",
+        name="Backup Reserve",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.BATTERY,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    JackerySensorEntityDescription(
         key="bt",
         name="Battery Temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
@@ -104,6 +111,14 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+    ),
+    JackerySensorEntityDescription(
+        key="acpsp",
+        name="Solar Panel Input Power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value=lambda value: value / 10.0,
     ),
     JackerySensorEntityDescription(
         key="it",
@@ -159,14 +174,6 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         name="Last Updated",
         device_class=SensorDeviceClass.TIMESTAMP,
         icon="mdi:clock",
-    ),
-        JackerySensorEntityDescription(
-        key="acpsp",
-        name="AC Power Solar Panel",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
-        value=lambda value: value / 10.0,
     ),
 )
 
