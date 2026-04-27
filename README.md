@@ -23,36 +23,42 @@ Custom Home Assistant integration for monitoring and controlling Jackery portabl
 
 ### Regular Sensors
 
-| Sensor                     | Description                                 | Unit     |
-| -------------------------- | ------------------------------------------- | -------- |
-| Remaining Battery          | Current battery level                       | %        |
-| Battery Reserve            | Battery percentage reserved for lost power  | %        | 
-| Battery Temperature        | Battery temperature                         | °C       |
-| Battery Status             | Idle, Charging, Discharging, or Fault       | text     |
-| Output Power               | Current power output                        | W        |
-| Total Input Power          | Current total power input                   | W        |
-| AC Input Power             | Current AC input power                      | W        |
-| DC Input Power             | Current DC/car input power                  | W        |
-| Solar Panel Input Power    | Current Solar Panel input power             | W        |
-| Time to Full               | Estimated time to full charge               | hours    |
-| Remaining Output Time      | Estimated remaining runtime                 | hours    |
-| AC Output Voltage          | Current AC output voltage                   | V        |
-| AC Output Frequency        | Current AC output frequency                 | Hz       |
-| Error Code                 | Reported device error code                  | integer  |
-| Parallel Modules Connected | Reported external module count, if present  | integer  |
-| Last Updated               | Timestamp of last successful data refresh   | ISO 8601 |
+| Sensor                     | Description                                         | Unit     |
+| -------------------------- | --------------------------------------------------- | -------- |
+| Remaining Battery          | Current battery level                               | %        |
+| Backup Reserve             | Battery percentage reserved for power loss          | %        | 
+| Battery Temperature        | Battery temperature                                 | °C       |
+| Battery Status             | Idle, Charging, Discharging, or Fault               | text     |
+| Output Power               | Current power output                                | W        |
+| Total Input Power          | Current total power input                           | W        |
+| AC Input Power             | Current AC input power                              | W        |
+| DC Input Power             | Current DC/car input power                          | W        |
+| Solar Panel Input Power    | Current Solar Panel input power                     | W        |
+| Time to Full               | Estimated time to full charge                       | hours    |
+| Remaining Output Time      | Estimated remaining runtime                         | hours    |
+| AC Output Voltage          | Current AC output voltage                           | V        |
+| AC Outlet Output Voltage   | Current AC output voltage of AC outlets             | V        |
+| AC Output Frequency        | Current AC output frequency                         | Hz       |
+| Error Code                 | Reported device error code                          | integer  |
+| Battery Pack               | External Battery Packs connected                    | text     |
+| Batteries Indicated        | Number of External Battery Packs                    | integer  |
+| Power System State         | Power supplied by Grid or Station (batteries/solar) | text     |
+| UTC offset                 | Timezone offset in hours                            | integer  |
+| Last Updated               | Timestamp of last successful data refresh           | ISO 8601 |
 
 ### Binary Sensors (ON/OFF)
 
-| Sensor            | Description                       |
-| ----------------- | --------------------------------- |
-| AC Output         | AC output status                  |
-| DC Output         | Combined DC output status         |
-| DC Car Output     | DC car port output status         |
-| USB Output        | USB output status                 |
-| Temperature Alarm | Device temperature alarm status   |
-| Power Alarm       | Device power/protection alarm     |
-| UPS Mode          | Device UPS Mode status            |
+| Sensor                | Description                              |
+| --------------------- | ---------------------------------------- |
+| AC Output             | AC output status                         |
+| DC Output             | Combined DC output status                |
+| DC Car Output         | DC car port output status                |
+| USB Output            | USB output status                        |
+| Temperature Alarm     | Device temperature alarm status          |
+| Temperature Protction | Device temperature protection status     |
+| Power Alarm           | Device power/protection alarm            |
+| UPS Mode              | Device UPS Mode status                   |
+| Outlets Active        | Whether any device outlets are active    |
 
 **Note:** Different Jackery device models may report different combinations of DC output sensors. Some models use a combined `odc` parameter while others use separate `odcc` and `odcu` parameters. The integration hides the combined DC entity when split USB/car output keys are available.
 
@@ -97,10 +103,10 @@ The integration creates writable entities only when the corresponding properties
 ## Device-Specific Availability
 
 - Entities are created only when the Jackery API reports the underlying key for that device.
+- Charging plans are not available for devices connected to a Smart Transfer Switch
 - `Charging Plan` appears when the device reports DP `107`.
 - `Charging Plan Time` and `Charging Plan Repeat` appear when the device reports DP `108`.
 - Devices that split DC control into `odcu` and `odcc` will not show the combined `DC Output` entity.
-- `Parallel Modules Connected` appears only on devices that expose `pmb`.
 - `Charging Plan Time` and `Charging Plan Repeat` become unavailable if the reported DP `108` payload is missing or malformed.
 
 ## Installation
