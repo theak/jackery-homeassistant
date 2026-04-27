@@ -41,6 +41,10 @@ BATTERY_STATUS_LABELS: dict[int, str] = {
     3: "Fault",
 }
 
+GRID_STATUS_LABELS: dict[int,str] = {
+    0: "Grid Power",
+    1: "Station Power",
+}
 
 def _battery_status_value(value: object) -> str:
     """Return a friendly label for battery status codes."""
@@ -51,6 +55,14 @@ def _battery_status_value(value: object) -> str:
 
     return BATTERY_STATUS_LABELS.get(status, str(value))
 
+def _grid_status_value(value: object) -> str:
+    """Return a friendly label for grid status codes."""
+    try:
+        status = int(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    return GRID_STATUS_LABELS.get(status, str(value))
 
 @dataclass
 class JackerySensorEntityDescription(SensorEntityDescription):
@@ -145,6 +157,14 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         value=lambda value: value / 10.0,
     ),
     JackerySensorEntityDescription(
+        key="acov1",
+        name="AC Outlet Output Voltage",
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value=lambda value: value / 10.0,
+    ),
+    JackerySensorEntityDescription(
         key="acohz",
         name="AC Output Frequency",
         native_unit_of_measurement=UnitOfFrequency.HERTZ,
@@ -164,10 +184,31 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         value=_battery_status_value,
     ),
     JackerySensorEntityDescription(
-        key="pmb",
-        name="Parallel Modules Connected",
-        icon="mdi:battery-sync-outline",
+        key="bp",
+        name="Battery Pack",
+        icon="mdi:battery",
         entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    JackerySensorEntityDescription(
+        key="bi",
+        name="Batteries Indicated",
+        icon="mdi:battery-multiple",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    JackerySensorEntityDescription(
+        key="uo",
+        name="UTC Offset",
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        icon="mdi:clock-time-four-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=lambda value: value / 3600.0,
+    ),
+    JackerySensorEntityDescription(
+        key="pss",
+        name="Power System State",
+        icon="mdi:transmission-tower",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=_grid_status_value
     ),
     JackerySensorEntityDescription(
         key="last_updated",
@@ -216,6 +257,13 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     BinarySensorEntityDescription(
+        key="tp",
+        name="Temperature Protection",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        icon="mdi:thermometer-alert",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BinarySensorEntityDescription(
         key="pal",
         name="Power Alarm",
         device_class=BinarySensorDeviceClass.PROBLEM,
@@ -227,5 +275,12 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[BinarySensorEntityDescription, ...] = (
         name="UPS Mode",
         device_class=BinarySensorDeviceClass.POWER,
         icon="mdi:power-plug-battery",
+    ),
+    BinarySensorEntityDescription(
+        key="pmb",
+        name="Outlets Active",
+        device_class=BinarySensorDeviceClass.POWER,
+        icon="mdi:power-plug",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
