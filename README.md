@@ -1,48 +1,113 @@
 > I have a full time job and can't respond to issues, but I'm open to contributions! If you submit a reasonable pull request, I will review, respond, test, and merge if it looks good. Thank you for understanding!
 
-> **Known issue:** This integration currently [does not support accounts registered in the EU](https://github.com/theak/jackery-homeassistant/issues/2).
+> **Known issue:** This integration currently does not support accounts registered in the EU.
 
 # Jackery Home Assistant Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![maintainer](https://img.shields.io/badge/maintainer-%40theak-blue.svg)](https://github.com/theak)
-[![version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/theak/jackery-homeassistant)
+[![version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/theak/jackery-homeassistant)
 
-Custom Home Assistant integration for monitoring Jackery portable power stations. This integration provides real-time sensor data for your Jackery devices including battery status, power output, temperature, and more.
+Custom Home Assistant integration for monitoring and controlling Jackery portable power stations. This integration provides real-time sensor data for your Jackery devices along with writable controls for supported settings and charging plans on supported Jackery Plus models.
 
 ## Features
 
-- 🔋 **Battery Monitoring**: Track remaining battery percentage and temperature
-- ⚡ **Power Monitoring**: Monitor input/output power in watts
-- ⏱️ **Time Tracking**: View time to full charge and remaining output time
-- 🔌 **Output Status**: Binary sensors for AC, DC car, and USB output status
+- 🔋 **Battery Monitoring**: Track remaining battery percentage, battery temperature, and battery status
+- ⚡ **Power Monitoring**: Monitor total input, AC input, DC input, output power, AC output voltage, and AC output frequency
+- ⏱️ **Time Tracking**: View time to full charge, remaining output time, and the last successful refresh timestamp
+- 🔌 **Output Status**: Binary sensors for AC, DC, DC car, and USB output status where supported by the device
+- 🎛️ **Device Controls**: Writable switches, selects, and number entities for supported Jackery settings
+- 📅 **Charging Plans**: Charging-plan switch, time window, and repeat schedule for supported Jackery Plus devices
 
 ## Supported Sensors
 
 ### Regular Sensors
 
-| Sensor                | Description                   | Unit     |
-| --------------------- | ----------------------------- | -------- |
-| Remaining Battery     | Current battery level         | %        |
-| Battery Temperature   | Battery temperature           | °C       |
-| Output Power          | Current power output          | W        |
-| Input Power           | Current power input           | W        |
-| AC Input Power        | AC power input                | W        |
-| Time to Full          | Estimated time to full charge | hours    |
-| Remaining Output Time | Estimated remaining runtime   | hours    |
-| AC Output Voltage     | AC output voltage             | V        |
-| Last Updated          | Timestamp of last data update | ISO 8601 |
+| Sensor                     | Description                                         | Unit     |
+| -------------------------- | --------------------------------------------------- | -------- |
+| Remaining Battery          | Current battery level                               | %        |
+| Backup Reserve             | Battery percentage reserved for power loss          | %        | 
+| Battery Temperature        | Battery temperature                                 | °C       |
+| Battery Status             | Idle, Charging, Discharging, or Fault               | text     |
+| Output Power               | Current power output                                | W        |
+| Total Input Power          | Current total power input                           | W        |
+| AC Input Power             | Current AC input power                              | W        |
+| DC Input Power             | Current DC/car input power                          | W        |
+| Solar Panel Input Power    | Current Solar Panel input power                     | W        |
+| Time to Full               | Estimated time to full charge                       | hours    |
+| Remaining Output Time      | Estimated remaining runtime                         | hours    |
+| AC Output Voltage          | Current AC output voltage                           | V        |
+| AC Outlet Output Voltage   | Current AC output voltage of AC outlets             | V        |
+| AC Output Frequency        | Current AC output frequency                         | Hz       |
+| Error Code                 | Reported device error code                          | integer  |
+| Battery Pack               | External Battery Packs connected                    | text     |
+| Batteries Indicated        | Number of External Battery Packs                    | integer  |
+| Power System State         | Power supplied by Grid or Station (batteries/solar) | text     |
+| UTC offset                 | Timezone offset in hours                            | integer  |
+| Last Updated               | Timestamp of last successful data refresh           | ISO 8601 |
 
 ### Binary Sensors (ON/OFF)
 
-| Sensor        | Description               |
-| ------------- | ------------------------- |
-| AC Output     | AC output status          |
-| DC Output     | DC output status          |
-| DC Car Output | DC car port output status |
-| USB Output    | USB output status         |
+| Sensor                 | Description                              |
+| ---------------------- | ---------------------------------------- |
+| AC Output              | AC output status                         |
+| DC Output              | Combined DC output status                |
+| DC Car Output          | DC car port output status                |
+| USB Output             | USB output status                        |
+| Temperature Alarm      | Device temperature alarm status          |
+| Temperature Protection | Device temperature protection status     |
+| Power Alarm            | Device power/protection alarm            |
+| UPS Mode               | Device UPS Mode status                   |
+| Outlets Active         | Whether any device outlets are active    |
 
-**Note:** Different Jackery device models may report different combinations of DC output sensors. Early exploration suggests some models use a combined `odc` parameter while others use separate `odcc` and `odcu` parameters.
+**Note:** Different Jackery device models may report different combinations of DC output sensors. Some models use a combined `odc` parameter while others use separate `odcc` and `odcu` parameters. The integration hides the combined DC entity when split USB/car output keys are available.
+
+## Supported Controls
+
+The integration creates writable entities only when the corresponding properties are reported by the device.
+
+### Switches
+
+| Entity              | Description                              |
+| ------------------- | ---------------------------------------- |
+| AC Output           | Toggle AC output                         |
+| DC Output           | Toggle combined DC output                |
+| DC Car Output       | Toggle DC car output                     |
+| USB Output          | Toggle USB output                        |
+| Super Fast Charge   | Toggle super fast charge mode            |
+| Charging Plan       | Enable or disable charging plans         |
+
+### Selects
+
+| Entity                | Options                        |
+| --------------------- | ------------------------------ |
+| Light Mode            | `off`, `low`, `high`, `sos`    |
+| Charge Speed          | `fast`, `mute`                 |
+| Battery Protection    | `full`, `eco`                  |
+| Charging Plan Repeat  | `Everyday`, `Weekdays`, `Weekends`, `Once` |
+
+### Numbers
+
+| Entity           | Description                     | Unit    |
+| ---------------- | ------------------------------- | ------- |
+| Auto Shutdown    | Auto shutdown delay             | minutes |
+| Energy Saving    | Energy saving timer             | minutes |
+| Screen Timeout   | Screen timeout delay            | minutes |
+
+### Text
+
+| Entity              | Description                                  | Format         |
+| ------------------- | -------------------------------------------- | -------------- |
+| Charging Plan Time  | Charging plan time window for supported devices | `HH:mm-HH:mm` |
+
+## Device-Specific Availability
+
+- Entities are created only when the Jackery API reports the underlying key for that device.
+- Charging plans are not available for devices connected to a Smart Transfer Switch
+- `Charging Plan` appears when the device reports DP `107`.
+- `Charging Plan Time` and `Charging Plan Repeat` appear when the device reports DP `108`.
+- Devices that split DC control into `odcu` and `odcc` will not show the combined `DC Output` entity.
+- `Charging Plan Time` and `Charging Plan Repeat` become unavailable if the reported DP `108` payload is missing or malformed.
 
 ## Installation
 
@@ -52,6 +117,10 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
 2. Add this repository as a custom repository in HACS
 3. Search for "Jackery" in the integrations section
 4. Click "Download" and restart Home Assistant
+
+HACS installs published version tags from GitHub releases. This repository now publishes a matching GitHub release automatically whenever a semantic version tag is pushed.
+
+If you need fixes that have not been published as a new GitHub release yet, HACS can also install the repository's default branch. This keeps branch installs available even while the latest published release remains `1.0.4`.
 
 ### Option 2: Manual Installation
 
@@ -69,20 +138,21 @@ Custom Home Assistant integration for monitoring Jackery portable power stations
    - **Password**: Your Jackery account password
 5. Click **Submit**
 
-The integration will automatically discover your Jackery devices and create sensors for each one.
+The integration will automatically discover your Jackery devices and create the supported entities for each one.
 
 ## Usage
 
-Once configured, you'll find your Jackery devices and their sensors in:
+Once configured, you'll find your Jackery devices and their entities in:
 
 - **Settings** → **Devices & Services** → **Entities**
-- Each device will have its own set of sensors
+- Each device will have its own set of supported entities
 
-You can use these sensors in:
+You can use these entities in:
 
 - **Dashboards**: Create custom dashboards to monitor your power station
-- **Automations**: Set up automations based on battery level, power status, etc.
+- **Automations**: Set up automations based on battery level, power status, alarms, or control states
 - **Templates**: Use sensor values in templates for custom calculations
+- **Controls**: Change supported Jackery settings directly from Home Assistant
 
 ### Example Automations
 
@@ -147,10 +217,13 @@ logger:
 
 - `requests>=2.31.0`
 - `pycryptodomex>=3.19.0`
+- `socketry>=0.2.4`
 
 ## Contributing
 
 Pull Requests are encouraged and welcome! For major changes, please open an issue first to discuss what you would like to change.
+
+When changing `custom_components/jackery/manifest.json` version metadata, push the matching semantic version tag so HACS can install that version directly.
 
 ## License
 
