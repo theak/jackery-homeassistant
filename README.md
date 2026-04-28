@@ -6,7 +6,7 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![maintainer](https://img.shields.io/badge/maintainer-%40theak-blue.svg)](https://github.com/theak)
-[![version](https://img.shields.io/badge/version-1.0.5-blue.svg)](https://github.com/theak/jackery-homeassistant)
+[![version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/theak/jackery-homeassistant)
 
 Custom Home Assistant integration for monitoring and controlling Jackery portable power stations. This integration provides real-time sensor data for your Jackery devices along with writable controls for supported settings and charging plans on supported Jackery Plus models.
 
@@ -120,7 +120,7 @@ The integration creates writable entities only when the corresponding properties
 
 HACS installs published version tags from GitHub releases. This repository now publishes a matching GitHub release automatically whenever a semantic version tag is pushed.
 
-If you need fixes that have not been published as a new GitHub release yet, HACS can also install the repository's default branch. This keeps branch installs available even while the latest published release remains `1.0.5`.
+If you need fixes that have not been published as a new GitHub release yet, HACS can also install the repository's default branch. This keeps branch installs available even while the latest published release remains `1.0.4`.
 
 ### Option 2: Manual Installation
 
