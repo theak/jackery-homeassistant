@@ -48,17 +48,17 @@ Custom Home Assistant integration for monitoring and controlling Jackery portabl
 
 ### Binary Sensors (ON/OFF)
 
-| Sensor                | Description                              |
-| --------------------- | ---------------------------------------- |
-| AC Output             | AC output status                         |
-| DC Output             | Combined DC output status                |
-| DC Car Output         | DC car port output status                |
-| USB Output            | USB output status                        |
-| Temperature Alarm     | Device temperature alarm status          |
-| Temperature Protction | Device temperature protection status     |
-| Power Alarm           | Device power/protection alarm            |
-| UPS Mode              | Device UPS Mode status                   |
-| Outlets Active        | Whether any device outlets are active    |
+| Sensor                 | Description                              |
+| ---------------------- | ---------------------------------------- |
+| AC Output              | AC output status                         |
+| DC Output              | Combined DC output status                |
+| DC Car Output          | DC car port output status                |
+| USB Output             | USB output status                        |
+| Temperature Alarm      | Device temperature alarm status          |
+| Temperature Protection | Device temperature protection status     |
+| Power Alarm            | Device power/protection alarm            |
+| UPS Mode               | Device UPS Mode status                   |
+| Outlets Active         | Whether any device outlets are active    |
 
 **Note:** Different Jackery device models may report different combinations of DC output sensors. Some models use a combined `odc` parameter while others use separate `odcc` and `odcu` parameters. The integration hides the combined DC entity when split USB/car output keys are available.
 
