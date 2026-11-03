@@ -34,6 +34,14 @@ The **UPS Mode** switch enables approximately 20ms grid-to-battery switchover on
 
 The **Force Charge** switch forces the battery to charge from the grid regardless of the current working mode or scheduled plans. Useful for quickly topping up before an expected outage.
 
+## Timezone and Schedules
+
+The Transfer Switch runs its scheduled plans on its own clock, set from a UTC offset stored on the device. The **UTC Offset** number shows and changes that offset in hours. The Jackery app only updates it when you open the app, so after a daylight saving change the switch can keep running plans an hour early or late.
+
+Turn on **Follow Home Assistant Timezone** to have the integration compare the device's offset with Home Assistant's and correct it when they differ. It also reacts when you change the timezone in Home Assistant's settings. The switch is off by default and keeps its state across restarts. While it is on, the UTC Offset number is unavailable.
+
+The Explorer 5000 Plus also has these two entities. It only accepts the offset and it has no effect while it is connected to the Transfer Switch.
+
 ## Energy Counters
 
 The Transfer Switch reports cumulative energy totals in watt-hours:

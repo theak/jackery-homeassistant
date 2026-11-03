@@ -13,6 +13,7 @@ See [Device Availability](Device-Availability) for a full breakdown of which con
 | Circuit {name} | Toggle individual circuits on/off (Transfer Switch) |
 | DC Car Output | Toggle DC car output |
 | DC Output | Toggle combined DC output |
+| Follow Home Assistant Timezone | Keep the device's UTC offset in step with Home Assistant, including daylight saving changes. Off by default.
 | Force Charge | Force battery to charge from grid regardless of working mode (Transfer Switch) |
 | Grid / Station | Toggle between grid power and station power (Transfer Switch) |
 | Plan {name} | Toggle individual scheduled plans on/off (Transfer Switch) |
@@ -54,6 +55,9 @@ Working Mode controls which of the three Transfer Switch operating modes is acti
 | Energy Saving | Energy saving timer | device-dependent | minutes |
 | Screen Timeout | Screen timeout delay | device-dependent | minutes |
 | Backup Reserve | Minimum battery % reserved for outages (Transfer Switch) | 1-90 | % |
+| UTC Offset | Timezone offset the device uses for its clock and schedules | -12 to 14, 0.25 steps | hours |
+
+**UTC Offset:** Changes are sent a few seconds after you stop adjusting the value, so stepping with the arrows sends a single update. The value is unavailable while **Follow Home Assistant Timezone** is on. See [Transfer Switch](Transfer-Switch#timezone-and-schedules).
 
 ## Text
 
