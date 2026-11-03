@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from decimal import Decimal, ROUND_HALF_UP
 
 from homeassistant.components.number import NumberEntity, NumberMode
@@ -12,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo, EntityDescription
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -20,9 +22,20 @@ from homeassistant.helpers.update_coordinator import (
 from .api import JackeryAPI
 from .const import DOMAIN, ENTITY_HELP_TEXT
 from homeassistant.const import EntityCategory
-from .protocol import CloudOnlineAvailabilityMixin, control_spec, supported_keys
+from .protocol import (
+    CloudOnlineAvailabilityMixin,
+    control_spec,
+    is_transfer_switch_device,
+    supported_keys,
+    timezone_command,
+)
 
 NUMBER_KEYS = ("ast", "pm", "sltb", "ddt", "autoDt", "cdsDt", "selfDt")
+
+_LOGGER = logging.getLogger(__name__)
+
+# Wait for the arrow clicks to stop before sending the UTC offset.
+UTC_OFFSET_SEND_DELAY = 3
 
 # Transfer Switch commands: key -> (action_id, cmd)
 TRANSFER_SWITCH_NUMBER_COMMANDS: dict[str, tuple[int, int]] = {
@@ -73,6 +86,7 @@ async def async_setup_entry(
     devices: list[dict] = entry_data["devices"]
 
     entities = []
+    tz_follow: dict[str, bool] = entry_data.setdefault("tz_follow", {})
     for device in devices:
         device_id = device["devId"]
         coordinator = coordinators.get(device_id)
@@ -90,7 +104,123 @@ async def async_setup_entry(
                 )
             )
 
+        if supported_keys(coordinator.data, ("uo",)):
+            entities.append(
+                JackeryUtcOffsetNumber(
+                    api=api,
+                    coordinator=coordinator,
+                    device_info=device,
+                    follow_state=tz_follow,
+                )
+            )
+
     async_add_entities(entities)
+
+
+class JackeryUtcOffsetNumber(CloudOnlineAvailabilityMixin, CoordinatorEntity, NumberEntity):
+    """UTC offset the device uses for its clock and schedules, in decimal hours."""
+
+    _attr_name = "UTC Offset"
+    _attr_icon = "mdi:clock-time-four-outline"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
+    _attr_native_min_value = -12
+    _attr_native_max_value = 14
+    _attr_native_step = 0.25
+
+    def __init__(
+        self,
+        api: JackeryAPI,
+        coordinator: DataUpdateCoordinator,
+        device_info: dict,
+        follow_state: dict[str, bool],
+    ) -> None:
+        super().__init__(coordinator)
+        self._api = api
+        self._follow_state = follow_state
+        self._device = device_info
+        self._device_id = device_info["devId"]
+        self._device_sn = device_info["devSn"]
+        self._attr_unique_id = f"{self._device_id}_uo"
+        self._pending: float | None = None
+        self._cancel_send = None
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, self._device_id)},
+            name=device_info.get("devName", f"Jackery Device {self._device_id}"),
+            manufacturer="Jackery",
+            model=device_info.get("productType"),
+        )
+
+    @property
+    def available(self) -> bool:
+        # The Follow Home Assistant Timezone switch owns the offset while it is on.
+        return super().available and not self._follow_state.get(self._device_id, False)
+
+    @property
+    def native_value(self) -> float | None:
+        if self._pending is not None:
+            return self._pending
+        seconds = (self.coordinator.data or {}).get("uo")
+        if not isinstance(seconds, (int, float)) or isinstance(seconds, bool):
+            return None
+        return seconds / 3600
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        return {"description": ENTITY_HELP_TEXT["uo"]}
+
+    async def async_will_remove_from_hass(self) -> None:
+        if self._cancel_send is not None:
+            self._cancel_send()
+            self._cancel_send = None
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Hold the value and send it once the arrows stop being clicked."""
+        self._pending = float(value)
+        self.async_write_ha_state()
+        if self._cancel_send is not None:
+            self._cancel_send()
+        self._cancel_send = async_call_later(
+            self.hass, UTC_OFFSET_SEND_DELAY, self._async_send_pending
+        )
+
+    async def _async_send_pending(self, _now) -> None:
+        self._cancel_send = None
+        value = self._pending
+        if value is None:
+            return
+        if self._follow_state.get(self._device_id, False):
+            self._pending = None
+            self.async_write_ha_state()
+            return
+        action_id, body, ack_cmd = timezone_command(
+            is_transfer_switch_device(self._device, self.coordinator.data),
+            value,
+            self.hass.config.time_zone,
+        )
+        try:
+            ack = await self._api.async_send_device_command(
+                self._device_id, self._device_sn, action_id, body, ack_cmd=ack_cmd
+            )
+            if ack is None:
+                raise HomeAssistantError("Device did not acknowledge the change")
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
+            _LOGGER.error("Failed to set UTC offset on %s: %s", self._device_sn, err)
+            if self._pending == value:
+                self._pending = None
+            self.async_write_ha_state()
+            return
+
+        updated_data = dict(self.coordinator.data or {})
+        updated_data["uo"] = body["uo"]
+        # A newer click during the send keeps its own pending value.
+        if self._pending == value:
+            self._pending = None
+        self.coordinator.async_set_updated_data(updated_data)
+        await self.coordinator.async_request_refresh()
 
 
 class JackeryNumberEntity(CloudOnlineAvailabilityMixin, CoordinatorEntity, NumberEntity):

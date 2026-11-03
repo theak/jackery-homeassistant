@@ -394,14 +394,6 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     JackerySensorEntityDescription(
-        key="uo",
-        name="UTC Offset",
-        native_unit_of_measurement=UnitOfTime.HOURS,
-        icon="mdi:clock-time-four-outline",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value=lambda value: value / 3600.0,
-    ),
-    JackerySensorEntityDescription(
         key="pss",
         name="Power System State",
         icon="mdi:transmission-tower",

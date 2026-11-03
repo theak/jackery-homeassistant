@@ -189,6 +189,7 @@ def install_package_stubs(stubbed_modules: dict[str, object]) -> None:
         "CLOUD_STATUS_KEYS",
         "is_cloud_online",
         "parse_cloud_status",
+        "timezone_command",
     ):
         setattr(protocol_mod, name, getattr(real_protocol, name))
 

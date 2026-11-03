@@ -400,6 +400,21 @@ def control_spec(key: str) -> JackeryControlSpec:
     return CONTROL_SPECS[key]
 
 
+def timezone_command(
+    is_transfer_switch: bool, utc_offset_hours: float, zone: str
+) -> tuple[int, dict[str, object], int | None]:
+    """Build (action_id, body, ack_cmd) for setting a device's timezone.
+
+    The device wants ``uo`` as an integer number of seconds (a string sets 0).
+    The Explorer 5000 Plus drops bodies that contain ``timezone``, so portables
+    get ``uo`` only.
+    """
+    seconds = round(utc_offset_hours * 3600)
+    if is_transfer_switch:
+        return 1, {"cmd": 3, "uo": seconds, "timezone": zone}, 3
+    return 25, {"uo": seconds}, None
+
+
 CLOUD_ONLINE_KEY = "cloud_online"
 CLOUD_ONLINE_TIME_KEY = "cloud_online_time"
 CLOUD_OFFLINE_TIME_KEY = "cloud_offline_time"

@@ -122,7 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         | {d.key for d in BINARY_SENSOR_DESCRIPTIONS}
         | set(CONTROL_SPECS)
         | {f"{s}_pack_{i}_rb" for s in ("ac1", "ac2") for i in range(1, 6)}
-        | {"last_updated", "_plans", "_circuits"}
+        | {"last_updated", "_plans", "_circuits", "uo"}
         | CLOUD_STATUS_KEYS
     )
 

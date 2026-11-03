@@ -271,6 +271,34 @@ class ProtocolTests(unittest.TestCase):
         self.assertTrue(protocol.is_transfer_switch_device({"modelCode": 2001}, {}))
 
 
+class TimezoneCommandTests(unittest.TestCase):
+    """Validate the timezone command bodies verified against live devices."""
+
+    def test_transfer_switch_sends_cmd3_with_integer_seconds_and_zone(self) -> None:
+        action_id, body, ack_cmd = protocol.timezone_command(
+            True, -8, "America/Los_Angeles"
+        )
+        self.assertEqual(action_id, 1)
+        self.assertEqual(
+            body, {"cmd": 3, "uo": -28800, "timezone": "America/Los_Angeles"}
+        )
+        self.assertIs(type(body["uo"]), int)
+        self.assertEqual(ack_cmd, 3)
+
+    def test_portable_sends_uo_only(self) -> None:
+        action_id, body, ack_cmd = protocol.timezone_command(
+            False, -8, "America/Los_Angeles"
+        )
+        self.assertEqual(action_id, 25)
+        self.assertEqual(body, {"uo": -28800})
+        self.assertIsNone(ack_cmd)
+
+    def test_decimal_hours_convert_to_whole_seconds(self) -> None:
+        self.assertEqual(protocol.timezone_command(False, 5.75, "x")[1]["uo"], 20700)
+        self.assertEqual(protocol.timezone_command(False, -3.5, "x")[1]["uo"], -12600)
+        self.assertIs(type(protocol.timezone_command(False, -7.0, "x")[1]["uo"]), int)
+
+
 class CloudStatusProtocolTests(unittest.TestCase):
     """Validate cloud online status parsing and entity availability."""
 

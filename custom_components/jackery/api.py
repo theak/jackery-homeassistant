@@ -590,8 +590,13 @@ class JackeryAPI:
         action_id: int,
         body: dict,
         message_type: str = "DevicePropertyChange",
-    ) -> None:
-        """Send a raw MQTT command via the persistent Transfer Switch session."""
+        ack_cmd: int | None = None,
+    ) -> dict | None:
+        """Send a raw MQTT command via the persistent Transfer Switch session.
+
+        Returns the matched response, or None if there was none. Set ``ack_cmd``
+        when the actionId is shared with periodic pushes (Transfer Switch actionId 1).
+        """
         if aiomqtt is None:
             raise RuntimeError("aiomqtt is not installed")
         if self._mqtt_session is None:
@@ -610,12 +615,14 @@ class JackeryAPI:
         _LOGGER.info("MQTT publish: actionId=%d body=%s", action_id, body)
 
         # Accept a response echoing the same actionId from this device.
-        # Periodic push messages (actionId=1) are implicitly excluded.
+        # ack_cmd also distinguishes the reply from periodic pushes sharing the actionId.
         def _match(data: dict) -> bool:
-            return (
-                data.get("deviceSn") == device_sn
-                and data.get("actionId") == action_id
-            )
+            if data.get("deviceSn") != device_sn or data.get("actionId") != action_id:
+                return False
+            if ack_cmd is None:
+                return True
+            resp_body = data.get("body")
+            return isinstance(resp_body, dict) and resp_body.get("cmd") == ack_cmd
 
         try:
             result = await self._mqtt_session.publish_and_wait(payload, _match, timeout=5.0)
@@ -625,10 +632,12 @@ class JackeryAPI:
                 result.get("actionId"),
                 result.get("body"),
             )
+            return result
         except TimeoutError:
             _LOGGER.warning("No MQTT response within 5s for actionId=%d", action_id)
         except Exception:
             _LOGGER.exception("MQTT command failed for actionId=%d device=%s", action_id, device_sn)
+        return None
 
     async def async_set_device_dp(
         self,

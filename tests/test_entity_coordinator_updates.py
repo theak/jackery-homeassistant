@@ -8,6 +8,7 @@ import sys
 import types
 import unittest
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -74,6 +75,10 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     exceptions_mod = ensure_module("homeassistant.exceptions")
     entity_mod = ensure_module("homeassistant.helpers.entity")
     entity_platform_mod = ensure_module("homeassistant.helpers.entity_platform")
+    event_mod = ensure_module("homeassistant.helpers.event")
+    restore_state_mod = ensure_module("homeassistant.helpers.restore_state")
+    util = ensure_module("homeassistant.util", package=True)
+    dt_mod = ensure_module("homeassistant.util.dt")
     update_coordinator_mod = ensure_module("homeassistant.helpers.update_coordinator")
 
     class SwitchEntity:
@@ -213,6 +218,9 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     class DataUpdateCoordinator:
         """Stub data coordinator base type."""
 
+    class RestoreEntity:
+        """Stub restore-state mixin."""
+
     class UnitOfTime:
         """Stub unit enum."""
 
@@ -245,6 +253,13 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     entity_mod.DeviceInfo = DeviceInfo
     entity_mod.EntityDescription = EntityDescription
     entity_platform_mod.AddEntitiesCallback = object
+    event_mod.async_call_later = lambda hass, delay, action: lambda: None
+    restore_state_mod.RestoreEntity = RestoreEntity
+    const_mod.EVENT_CORE_CONFIG_UPDATE = "core_config_updated"
+    if not hasattr(dt_mod, "now"):
+        dt_mod.now = lambda: None
+    if not hasattr(util, "dt"):
+        util.dt = dt_mod
     update_coordinator_mod.CoordinatorEntity = CoordinatorEntity
     update_coordinator_mod.DataUpdateCoordinator = DataUpdateCoordinator
 
@@ -258,6 +273,9 @@ def install_homeassistant_stubs(stubbed_modules: dict[str, object]) -> None:
     components.text = text_mod
     helpers.entity = entity_mod
     helpers.entity_platform = entity_platform_mod
+    helpers.event = event_mod
+    helpers.restore_state = restore_state_mod
+    homeassistant.util = util
     helpers.update_coordinator = update_coordinator_mod
 
 
@@ -348,6 +366,10 @@ class TrackingCoordinator:
 
     async def async_request_refresh(self) -> None:
         self.refresh_requests += 1
+
+    def async_update_listeners(self) -> None:
+        for listener in tuple(self.listeners):
+            listener()
 
     def async_add_listener(self, listener):
         self.listeners.append(listener)
@@ -495,6 +517,138 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(coordinator.updated_data_calls, [{"pm": 1440}])
         self.assertEqual(entity.native_value, 1440.0)
+
+    async def test_utc_offset_debounces_writes_and_shows_pending_value(self) -> None:
+        """Rapid arrow clicks should send only the final UTC offset, once."""
+        coordinator = TrackingCoordinator({"uo": -28800})
+        api = types.SimpleNamespace(
+            async_send_device_command=AsyncMock(return_value={"body": {"cmd": 3}})
+        )
+        scheduled = []
+        cancelled = []
+
+        def fake_call_later(hass, delay, action):
+            scheduled.append(action)
+            return lambda: cancelled.append(action)
+
+        entity = number.JackeryUtcOffsetNumber(
+            api=api,
+            coordinator=coordinator,
+            device_info={**self.device_info, "modelCode": 2001},
+            follow_state={},
+        )
+        entity.hass = types.SimpleNamespace(
+            config=types.SimpleNamespace(time_zone="America/Los_Angeles")
+        )
+
+        with unittest.mock.patch.object(number, "async_call_later", fake_call_later):
+            await entity.async_set_native_value(-7.75)
+            await entity.async_set_native_value(-7.5)
+            await entity.async_set_native_value(-7.25)
+
+        self.assertEqual(entity.native_value, -7.25)
+        self.assertEqual(len(scheduled), 3)
+        self.assertEqual(cancelled, scheduled[:2])
+        api.async_send_device_command.assert_not_awaited()
+
+        await scheduled[-1](None)
+
+        api.async_send_device_command.assert_awaited_once_with(
+            "device-1",
+            "serial-1",
+            1,
+            {"cmd": 3, "uo": -26100, "timezone": "America/Los_Angeles"},
+            ack_cmd=3,
+        )
+        self.assertEqual(coordinator.updated_data_calls, [{"uo": -26100}])
+        self.assertEqual(entity.native_value, -26100 / 3600)
+
+    def _make_follow_switch(self, uo, *, following=True, follow_state=None):
+        coordinator = TrackingCoordinator({"uo": uo})
+        api = types.SimpleNamespace(
+            async_send_device_command=AsyncMock(return_value={"body": {"cmd": 3}})
+        )
+        follow_state = {} if follow_state is None else follow_state
+        entity = switch.JackeryFollowTimezoneSwitch(
+            api=api,
+            coordinator=coordinator,
+            device_info={**self.device_info, "modelCode": 2001},
+            follow_state=follow_state,
+        )
+        tasks = []
+        entity.hass = types.SimpleNamespace(
+            config=types.SimpleNamespace(time_zone="America/Los_Angeles"),
+            async_create_task=lambda coro: tasks.append(coro),
+        )
+        entity._attr_is_on = following
+        return entity, coordinator, api, tasks
+
+    def _patch_ha_offset(self, hours):
+        local = datetime(2026, 11, 3, tzinfo=dt_timezone(timedelta(hours=hours)))
+        return unittest.mock.patch.object(switch.dt_util, "now", lambda: local)
+
+    async def test_follow_timezone_resyncs_when_device_offset_differs(self) -> None:
+        entity, coordinator, api, tasks = self._make_follow_switch(-25200)
+
+        with self._patch_ha_offset(-8):
+            entity._sync_if_needed()
+            self.assertEqual(len(tasks), 1)
+            entity._sync_if_needed()
+            self.assertEqual(len(tasks), 1)
+            await tasks[0]
+
+        api.async_send_device_command.assert_awaited_once_with(
+            "device-1",
+            "serial-1",
+            1,
+            {"cmd": 3, "uo": -28800, "timezone": "America/Los_Angeles"},
+            ack_cmd=3,
+        )
+        self.assertEqual(coordinator.updated_data_calls, [{"uo": -28800}])
+
+    async def test_follow_timezone_idle_when_off_or_matching(self) -> None:
+        with self._patch_ha_offset(-8):
+            entity, _, _, tasks = self._make_follow_switch(-25200, following=False)
+            entity._sync_if_needed()
+            self.assertEqual(tasks, [])
+
+            entity, _, _, tasks = self._make_follow_switch(-28800)
+            entity._sync_if_needed()
+            self.assertEqual(tasks, [])
+
+    async def test_follow_timezone_waits_before_retrying_after_failure(self) -> None:
+        entity, coordinator, api, tasks = self._make_follow_switch(-25200)
+        api.async_send_device_command.return_value = None
+
+        with self._patch_ha_offset(-8):
+            entity._sync_if_needed()
+            await tasks[0]
+            entity._sync_if_needed()
+
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(coordinator.updated_data_calls, [])
+
+    async def test_follow_timezone_toggle_updates_shared_state_for_number(self) -> None:
+        follow_state = {}
+        entity, coordinator, _, tasks = self._make_follow_switch(
+            -28800, following=False, follow_state=follow_state
+        )
+        number_entity = number.JackeryUtcOffsetNumber(
+            api=types.SimpleNamespace(),
+            coordinator=coordinator,
+            device_info={**self.device_info, "modelCode": 2001},
+            follow_state=follow_state,
+        )
+        self.assertTrue(number_entity.available)
+
+        with self._patch_ha_offset(-8):
+            await entity.async_turn_on()
+        self.assertEqual(follow_state, {"device-1": True})
+        self.assertFalse(number_entity.available)
+
+        await entity.async_turn_off()
+        self.assertEqual(follow_state, {"device-1": False})
+        self.assertTrue(number_entity.available)
 
     async def test_read_only_platforms_add_late_supported_entities(self) -> None:
         """Sensors and binary sensors should appear when their keys arrive later."""

@@ -223,6 +223,7 @@ def install_package_stubs(stubbed_modules: dict[str, object]) -> None:
     protocol_mod.CLOUD_STATUS_KEYS = frozenset()
     protocol_mod.is_cloud_online = lambda properties: True
     protocol_mod.parse_cloud_status = lambda device: {}
+    protocol_mod.timezone_command = lambda *args: (1, {}, None)
     _install_stub_module(stubbed_modules, f"{TEST_PACKAGE}.protocol", protocol_mod)
 
 
