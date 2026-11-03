@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from homeassistant.components.sensor import (
     SensorEntity,
 )
@@ -14,7 +15,10 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
-from .const import DOMAIN, SENSOR_DESCRIPTIONS, JackerySensorEntityDescription
+from .const import DOMAIN, SENSOR_DESCRIPTIONS, JackerySensorEntityDescription, ENTITY_HELP_TEXT
+from .protocol import CloudOnlineAvailabilityMixin, is_supported_property
+from .plan import JackeryPlanSensor, JackeryActivePlanSensor, has_plans
+from .circuit import JackeryCircuitPowerSensor, has_circuits, _get_circuits, get_logical_circuits
 
 
 async def async_setup_entry(
@@ -28,18 +32,85 @@ async def async_setup_entry(
     devices: list[dict] = entry_data["devices"]
 
     entities = []
+    registered_keys_by_device: dict[str, set[str]] = {}
     for device in devices:
         device_id = device["devId"]
         if device_id in coordinators:
             coordinator = coordinators[device_id]
+            registered_keys = registered_keys_by_device.setdefault(device_id, set())
             # Create entities for all sensor descriptions
             for description in SENSOR_DESCRIPTIONS:
-                entities.append(JackerySensor(coordinator, description, device))
+                if is_supported_property(coordinator.data, description.key):
+                    registered_keys.add(description.key)
+                    entities.append(JackerySensor(coordinator, description, device))
+
+            # Add plan overview sensor if coordinator has plan data
+            if has_plans(coordinator):
+                entities.append(
+                    JackeryPlanSensor(
+                        api=entry_data["api"],
+                        coordinator=coordinator,
+                        device_info=device,
+                    )
+                )
+                entities.append(
+                    JackeryActivePlanSensor(
+                        coordinator=coordinator,
+                        device_info=device,
+                    )
+                )
+
+            # Add circuit power sensors if coordinator has circuit data
+            if has_circuits(coordinator):
+                for logical in get_logical_circuits(_get_circuits(coordinator)):
+                    entities.append(
+                        JackeryCircuitPowerSensor(
+                            coordinator=coordinator,
+                            device_info=device,
+                            logical=logical,
+                        )
+                    )
 
     async_add_entities(entities)
 
+    def _build_sensor_listener(
+        device_info: dict,
+        device_coordinator: DataUpdateCoordinator,
+        registered_keys: set[str],
+    ):
+        def _async_add_supported_sensors() -> None:
+            new_entities = []
+            for description in SENSOR_DESCRIPTIONS:
+                if description.key in registered_keys:
+                    continue
+                if not is_supported_property(device_coordinator.data, description.key):
+                    continue
 
-class JackerySensor(CoordinatorEntity, SensorEntity):
+                registered_keys.add(description.key)
+                new_entities.append(
+                    JackerySensor(device_coordinator, description, device_info)
+                )
+
+            if new_entities:
+                async_add_entities(new_entities)
+
+        return _async_add_supported_sensors
+
+    for device in devices:
+        device_id = device["devId"]
+        coordinator = coordinators.get(device_id)
+        if coordinator is None:
+            continue
+
+        registered_keys = registered_keys_by_device.setdefault(device_id, set())
+        unsubscribe = coordinator.async_add_listener(
+            _build_sensor_listener(device, coordinator, registered_keys)
+        )
+        if hasattr(config_entry, "async_on_unload"):
+            config_entry.async_on_unload(unsubscribe)
+
+
+class JackerySensor(CloudOnlineAvailabilityMixin, CoordinatorEntity, SensorEntity):
     """Implementation of a Jackery sensor."""
 
     entity_description: JackerySensorEntityDescription
@@ -76,3 +147,28 @@ class JackerySensor(CoordinatorEntity, SensorEntity):
         if self.entity_description.value:
             return self.entity_description.value(value)
         return value
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        attrs: dict[str, object] = {}
+        text = ENTITY_HELP_TEXT.get(self.entity_description.key)
+        if text:
+            attrs["description"] = text
+        # For battery pack count sensors, expose each pack's SN and level
+        key = self.entity_description.key
+        if key.endswith("_bp_count"):
+            slot = key.rsplit("_bp_count", 1)[0]  # "ac1" or "ac2"
+            bp_list = self.coordinator.data.get(f"{slot}_bp")
+            if isinstance(bp_list, list):
+                for i, pack in enumerate(bp_list):
+                    prefix = f"pack_{i + 1}"
+                    attrs[f"{prefix}_sn"] = pack.get("sn", "")
+                    attrs[f"{prefix}_battery"] = pack.get("rb")
+        # For per-pack battery sensors, expose the pack serial number
+        m = re.match(r"^(ac[12])_pack_(\d+)_rb$", key)
+        if m:
+            slot, pack_num = m.group(1), m.group(2)
+            sn = self.coordinator.data.get(f"{slot}_pack_{pack_num}_sn")
+            if sn:
+                attrs["serial_number"] = sn
+        return attrs or None

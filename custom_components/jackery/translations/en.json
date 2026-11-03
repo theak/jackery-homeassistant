@@ -18,6 +18,12 @@
       "abort": {
         "already_configured": "This Jackery account is already configured."
       }
+    },
+    "issues": {
+      "device_offline": {
+        "title": "{device_name} is offline from the Jackery cloud",
+        "description": "The Jackery cloud has reported **{device_name}** as disconnected since {offline_since}. Its entities are unavailable until it reconnects.\n\nSome Jackery stations do not reconnect on their own after an internet outage. To restore the connection, re-enable Wi-Fi on the device and re-add it in the Jackery app. This issue clears automatically once the device is back online."
+      }
     }
 }
   

@@ -212,5 +212,20 @@ logs/
 config.local.yaml
 secrets.yaml
 
+# Project notes
+PROJECT_CONTEXT.md
+TODO.md
+explore_api.py
+explore_mqtt.py
+
+# MQTT sniffer
+mqtt_sniffer.py
+mqtt_capture.jsonl
+
+# Working / debug files
+example
+notes.txt
+custom_components/jackery/main.py
+
 # Deployment scripts
 deploy.sh

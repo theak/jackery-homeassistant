@@ -1,0 +1,94 @@
+create_plan:
+  name: Create Plan
+  description: Create a new charge or discharge plan on the Transfer Switch.
+  fields:
+    type:
+      name: Type
+      description: "Plan type: 1 = Charge, 2 = Discharge"
+      required: true
+      selector:
+        select:
+          options:
+            - label: Charge
+              value: "1"
+            - label: Discharge
+              value: "2"
+    start_time:
+      name: Start Time
+      description: "Start time in HH:MM format"
+      required: true
+      example: "14:00"
+      selector:
+        text:
+    end_time:
+      name: End Time
+      description: "End time in HH:MM format"
+      required: true
+      example: "19:00"
+      selector:
+        text:
+    days:
+      name: Days
+      description: "7-character day mask Mon-Sun (e.g. 1111100 = weekdays)"
+      required: true
+      example: "1111111"
+      selector:
+        text:
+    enabled:
+      name: Enabled
+      description: "Whether the plan starts enabled"
+      default: true
+      selector:
+        boolean:
+
+update_plan:
+  name: Update Plan
+  description: Update an existing plan on the Transfer Switch.
+  fields:
+    plan_id:
+      name: Plan ID
+      description: The plan ID (pid) to update
+      required: true
+      selector:
+        text:
+    type:
+      name: Type
+      description: "Plan type: 1 = Charge, 2 = Discharge"
+      selector:
+        select:
+          options:
+            - label: Charge
+              value: "1"
+            - label: Discharge
+              value: "2"
+    start_time:
+      name: Start Time
+      description: "Start time in HH:MM format"
+      selector:
+        text:
+    end_time:
+      name: End Time
+      description: "End time in HH:MM format"
+      selector:
+        text:
+    days:
+      name: Days
+      description: "7-character day mask Mon-Sun (e.g. 1111100 = weekdays)"
+      selector:
+        text:
+    enabled:
+      name: Enabled
+      description: "Whether the plan is enabled"
+      selector:
+        boolean:
+
+delete_plan:
+  name: Delete Plan
+  description: Delete a plan from the Transfer Switch.
+  fields:
+    plan_id:
+      name: Plan ID
+      description: The plan ID (pid) to delete
+      required: true
+      selector:
+        text:

@@ -1,160 +1,98 @@
-> I have a full time job and can't respond to issues, but I'm open to contributions! If you submit a reasonable pull request, I will review, respond, test, and merge if it looks good. Thank you for understanding!
+> This is a community-maintained project. Issue responses may be slow, but pull requests are welcome! Reasonable PRs will be reviewed, tested, and merged.
 
-> **Known issue:** This integration currently [does not support accounts registered in the EU](https://github.com/theak/jackery-homeassistant/issues/2).
+> **Note:** This integration targets the **Jackery** app backend (used by portable stations like the Explorer series and Smart Transfer Switch). If your device is managed by the **Jackery Home** app (e.g. HomePower 2000 Ultra, SolarVault), that app uses a different API; see [iLLixM/jackery_home_cloud-ha](https://github.com/iLLixM/jackery_home_cloud-ha) for a community integration targeting that backend.
 
 # Jackery Home Assistant Integration
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![maintainer](https://img.shields.io/badge/maintainer-%40theak-blue.svg)](https://github.com/theak)
-[![version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/theak/jackery-homeassistant)
+[![version](https://img.shields.io/badge/version-1.3.1-blue.svg)](https://github.com/theak/jackery-homeassistant)
 
-Custom Home Assistant integration for monitoring Jackery portable power stations. This integration provides real-time sensor data for your Jackery devices including battery status, power output, temperature, and more.
+Custom Home Assistant integration for monitoring and controlling Jackery portable power stations and the Smart Transfer Switch. Provides real-time sensors, writable controls, and automation services.
 
 ## Features
 
-- 🔋 **Battery Monitoring**: Track remaining battery percentage and temperature
-- ⚡ **Power Monitoring**: Monitor input/output power in watts
-- ⏱️ **Time Tracking**: View time to full charge and remaining output time
-- 🔌 **Output Status**: Binary sensors for AC, DC car, and USB output status
+- Battery, power, and time-remaining sensors for portable power stations
+- Writable switches, selects, and number entities for supported device settings
+- Charging plan support for Jackery Plus portable models
+- Smart Transfer Switch: grid/station toggle, UPS mode, working mode selection, circuit control, fault diagnostics, and scheduled charge/discharge plan management
+- Per-circuit power monitoring with automatic split-phase pair combining
+- Custom Lovelace cards for plan and circuit management
 
-## Supported Sensors
-
-### Regular Sensors
-
-| Sensor                | Description                   | Unit     |
-| --------------------- | ----------------------------- | -------- |
-| Remaining Battery     | Current battery level         | %        |
-| Battery Temperature   | Battery temperature           | °C       |
-| Output Power          | Current power output          | W        |
-| Input Power           | Current power input           | W        |
-| AC Input Power        | AC power input                | W        |
-| Time to Full          | Estimated time to full charge | hours    |
-| Remaining Output Time | Estimated remaining runtime   | hours    |
-| AC Output Voltage     | AC output voltage             | V        |
-| Last Updated          | Timestamp of last data update | ISO 8601 |
-
-### Binary Sensors (ON/OFF)
-
-| Sensor        | Description               |
-| ------------- | ------------------------- |
-| AC Output     | AC output status          |
-| DC Output     | DC output status          |
-| DC Car Output | DC car port output status |
-| USB Output    | USB output status         |
-
-**Note:** Different Jackery device models may report different combinations of DC output sensors. Early exploration suggests some models use a combined `odc` parameter while others use separate `odcc` and `odcu` parameters.
+For the full entity reference, see the [Wiki](../../wiki).
 
 ## Installation
 
-### Option 1: HACS (Recommended)
+### HACS (Recommended)
 
-1. Make sure you have [HACS](https://hacs.xyz/) installed
-2. Add this repository as a custom repository in HACS
-3. Search for "Jackery" in the integrations section
-4. Click "Download" and restart Home Assistant
+1. Install [HACS](https://hacs.xyz/) if you have not already.
+2. Add this repository as a custom repository in HACS.
+3. Search for "Jackery" in the integrations section and click Download.
+4. Restart Home Assistant.
 
-### Option 2: Manual Installation
+HACS installs from published GitHub releases. To get unreleased fixes, HACS can also install the repository's default branch directly.
 
-1. Download or clone this repository
-2. Copy the `jackery` folder to your `config/custom_components/` directory
-3. Restart Home Assistant
+### Manual
+
+1. Download or clone this repository.
+2. Copy the `jackery` folder to your `config/custom_components/` directory.
+3. Restart Home Assistant.
 
 ## Configuration
 
-1. In Home Assistant, go to **Settings** → **Devices & Services**
-2. Click **Add Integration**
-3. Search for "Jackery" and select it
-4. Enter your Jackery account credentials:
-   - **Username**: Your Jackery account email/username
-   - **Password**: Your Jackery account password
-5. Click **Submit**
+1. Go to **Settings** > **Devices and Services** > **Add Integration**.
+2. Search for "Jackery" and select it.
+3. Enter your Jackery account email and password.
+4. Click **Submit**.
 
-The integration will automatically discover your Jackery devices and create sensors for each one.
-
-## Usage
-
-Once configured, you'll find your Jackery devices and their sensors in:
-
-- **Settings** → **Devices & Services** → **Entities**
-- Each device will have its own set of sensors
-
-You can use these sensors in:
-
-- **Dashboards**: Create custom dashboards to monitor your power station
-- **Automations**: Set up automations based on battery level, power status, etc.
-- **Templates**: Use sensor values in templates for custom calculations
-
-### Example Automations
-
-```yaml
-# Low battery alert
-automation:
-  - alias: "Low Battery Alert"
-    trigger:
-      platform: numeric_state
-      entity_id: sensor.jackery_device_remaining_battery
-      below: 20
-    action:
-      - service: notify.mobile_app
-        data:
-          message: "Jackery battery is low: {{ states('sensor.jackery_device_remaining_battery') }}%"
-
-  # AC output turned on notification
-  - alias: "Jackery AC Output On"
-    trigger:
-      platform: state
-      entity_id: binary_sensor.jackery_device_ac_output
-      to: "on"
-    action:
-      - service: notify.mobile_app
-        data:
-          message: "Jackery AC output has been turned on"
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Authentication Failed**
-   - Verify your Jackery account credentials
-   - Ensure your account is active and not locked
-
-2. **No Devices Found**
-   - Make sure your Jackery device is connected to the internet
-   - Verify the device is registered to your account
-
-3. **Sensors Not Updating**
-   - Check the Home Assistant logs for errors
-   - Verify your device has internet connectivity
-
-### Logs
-
-To enable debug logging, add this to your `configuration.yaml`:
-
-```yaml
-logger:
-  default: info
-  logs:
-    custom_components.jackery: debug
-```
+The integration will discover your devices and create all supported entities automatically.
 
 ## Requirements
 
 - Home Assistant 2023.8.0 or newer
 - Python 3.10 or newer
 
-## Dependencies
-
+**Dependencies:**
 - `requests>=2.31.0`
 - `pycryptodomex>=3.19.0`
+- `socketry>=0.2.4`
+
+## Wiki
+
+Full documentation is available in the [Wiki](../../wiki):
+
+| Page | Contents |
+|------|----------|
+| [Charging Plans](../../wiki/Charging-Plans) | Scheduled charge/discharge plan details and protocol |
+| [Controls](../../wiki/Controls) | Switches, selects, numbers, and text entities |
+| [Device Availability](../../wiki/Device-Availability) | Which entities are created for which devices |
+| [Example Automations](../../wiki/Example-Automations) | Sample automations for common use cases |
+| [Lovelace Cards](../../wiki/Lovelace-Cards) | Custom card setup and features |
+| [Portable Devices](../../wiki/Portable-Devices) | Portable station features, charging behavior, and quirks |
+| [Properties](../../wiki/Properties) | Raw device property key reference |
+| [Sensors](../../wiki/Sensors) | All sensor and binary sensor reference tables |
+| [Services](../../wiki/Services) | HA services for Transfer Switch plan management |
+| [Supported Devices](../../wiki/Supported-Devices) | Known supported hardware and compatibility notes |
+| [Transfer Switch](../../wiki/Transfer-Switch) | Smart Transfer Switch working modes, circuits, fault diagnostics |
+| [Troubleshooting](../../wiki/Troubleshooting) | Common issues and debug logging |
+
+## Lovelace Cards
+
+Custom Lovelace cards for the Transfer Switch are available in a separate repository:
+
+**[jackery-lovelace-cards](https://github.com/turmacar/jackery-lovelace-cards)**
+
+See [Lovelace Cards](../../wiki/Lovelace-Cards) in the wiki for details on each card.
 
 ## Contributing
 
-Pull Requests are encouraged and welcome! For major changes, please open an issue first to discuss what you would like to change.
+Pull requests are encouraged and welcome! For major changes, open an issue first to discuss what you would like to change.
+
+When changing `custom_components/jackery/manifest.json` version metadata, push the matching semantic version tag so HACS can install that version directly.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT - see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
@@ -164,4 +102,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Note**: This is a community-driven integration and is not officially affiliated with Jackery. Use at your own risk.
+**Note:** This is a community-driven integration and is not officially affiliated with Jackery. Use at your own risk.
