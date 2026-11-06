@@ -28,6 +28,7 @@ See [Device Availability](Device-Availability) for a full breakdown of which sen
 | Solar Type | None / High Voltage / Low Voltage / High and Low Voltage | text |
 | Time to Full | Estimated time to full charge | hours |
 | Total Input Power | Current total power input | W |
+| UTC Offset | Timezone offset stored on the device (diagnostic, always available). Created when the device reports it | hours |
 
 **Note on Battery Status:** When a portable is connected to and managed by the Smart Transfer Switch, its Battery Status sensor reports Idle even while actively charging. The authoritative charging status in that configuration is the Transfer Switch's AC1 Battery Status or AC2 Battery Status sensor. See [Portable Devices](Portable-Devices#transfer-switch-connection).
 

@@ -644,7 +644,9 @@ class CoordinatorUpdateTests(unittest.IsolatedAsyncioTestCase):
         with self._patch_ha_offset(-8):
             await entity.async_turn_on()
         self.assertEqual(follow_state, {"device-1": True})
-        self.assertFalse(number_entity.available)
+        self.assertTrue(number_entity.available)
+        with self.assertRaises(number.HomeAssistantError):
+            await number_entity.async_set_native_value(5)
 
         await entity.async_turn_off()
         self.assertEqual(follow_state, {"device-1": False})

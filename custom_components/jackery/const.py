@@ -918,6 +918,13 @@ SENSOR_DESCRIPTIONS: tuple[JackerySensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    JackerySensorEntityDescription(
+        key="uo",
+        name="UTC Offset",
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value=lambda value: value / 3600,
+    ),
 )
 
 # Binary sensor descriptions

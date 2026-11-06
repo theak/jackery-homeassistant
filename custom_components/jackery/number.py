@@ -153,11 +153,6 @@ class JackeryUtcOffsetNumber(CloudOnlineAvailabilityMixin, CoordinatorEntity, Nu
         )
 
     @property
-    def available(self) -> bool:
-        # The Follow Home Assistant Timezone switch owns the offset while it is on.
-        return super().available and not self._follow_state.get(self._device_id, False)
-
-    @property
     def native_value(self) -> float | None:
         if self._pending is not None:
             return self._pending
@@ -177,6 +172,10 @@ class JackeryUtcOffsetNumber(CloudOnlineAvailabilityMixin, CoordinatorEntity, Nu
 
     async def async_set_native_value(self, value: float) -> None:
         """Hold the value and send it once the arrows stop being clicked."""
+        if self._follow_state.get(self._device_id, False):
+            raise HomeAssistantError(
+                "Turn off Follow Home Assistant Timezone to set the UTC offset"
+            )
         self._pending = float(value)
         self.async_write_ha_state()
         if self._cancel_send is not None:

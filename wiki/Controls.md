@@ -57,7 +57,7 @@ Working Mode controls which of the three Transfer Switch operating modes is acti
 | Backup Reserve | Minimum battery % reserved for outages (Transfer Switch) | 1-90 | % |
 | UTC Offset | Timezone offset the device uses for its clock and schedules | -12 to 14, 0.25 steps | hours |
 
-**UTC Offset:** Changes are sent a few seconds after you stop adjusting the value, so stepping with the arrows sends a single update. The value is unavailable while **Follow Home Assistant Timezone** is on. See [Transfer Switch](Transfer-Switch#timezone-and-schedules).
+**UTC Offset:** Changes are sent a few seconds after you stop adjusting the value, so stepping with the arrows sends a single update. While **Follow Home Assistant Timezone** is on the number still shows the current offset, but changes are rejected with an error. The read-only UTC Offset diagnostic sensor always shows the device's offset. See [Transfer Switch](Transfer-Switch#timezone-and-schedules).
 
 ## Text
 
