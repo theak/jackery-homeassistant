@@ -1,12 +1,19 @@
 {
-    "domain": "jackery",
-    "name": "Jackery",
-    "version": "1.0.1",
-    "documentation": "https://github.com/theak/jackery-homeassistant/blob/main/README.md",
-    "issue_tracker": "https://github.com/theak/jackery-homeassistant/issues",
-    "codeowners": ["@theak"],
-    "requirements": ["requests>=2.31.0", "pycryptodomex>=3.19.0"],
-    "icon": "icon.png",
-    "iot_class": "cloud_polling",
-    "config_flow": true
+  "domain": "jackery",
+  "name": "Jackery",
+  "categories": [
+    "energy"
+  ],
+  "codeowners": [
+    "@theak"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/theak/jackery-homeassistant/blob/main/README.md",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/theak/jackery-homeassistant/issues",
+  "requirements": [
+    "requests>=2.31.0",
+    "pycryptodomex>=3.19.0"
+  ],
+  "version": "1.0.1"
 }
