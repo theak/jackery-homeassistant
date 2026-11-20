@@ -7,7 +7,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
-from .api import JackeryAPI, JackeryAuthenticationError
+from .api import JackeryAPI, JackeryAuthenticationError, JackeryConnectionError
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,6 +50,8 @@ class JackeryConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title=info["title"], data=user_input)
             except JackeryAuthenticationError:
                 errors["base"] = "invalid_auth"
+            except JackeryConnectionError:
+                errors["base"] = "cannot_connect"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
