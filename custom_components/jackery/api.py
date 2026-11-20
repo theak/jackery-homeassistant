@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import logging
+import re
 import uuid
 from typing import Optional
 
@@ -17,6 +18,18 @@ _LOGGER = logging.getLogger(__name__)
 
 class JackeryAuthenticationError(Exception):
     """Exception to indicate an authentication error."""
+
+
+class JackeryConnectionError(Exception):
+    """Exception to indicate that the Jackery cloud could not be reached."""
+
+
+_SENSITIVE_PARAMS = re.compile(r"(aesEncryptData|rsaForAesKey)=[^&\s)'\"]+")
+
+
+def _redact(err: Exception) -> str:
+    """Return the error text without the encrypted credentials from the login URL."""
+    return _SENSITIVE_PARAMS.sub(r"\1=<redacted>", str(err))
 
 
 class JackeryAPI:
@@ -121,8 +134,10 @@ class JackeryAPI:
                 _LOGGER.error(error_msg)
                 raise JackeryAuthenticationError(data.get("msg", "Login failed"))
         except requests.RequestException as e:
-            _LOGGER.error("Login request failed: %s", e)
-            raise JackeryAuthenticationError(f"Request failed: {e}") from e
+            # The login URL carries the encrypted credentials, keep them out of logs.
+            message = _redact(e)
+            _LOGGER.error("Login request failed: %s", message)
+            raise JackeryConnectionError(f"Request failed: {message}") from None
 
     def _get_request(self, url_path: str, params: Optional[dict] = None) -> dict:
         """Make a GET request to the API, handling token expiry."""
@@ -179,7 +194,7 @@ class JackeryAPI:
 
         except requests.RequestException as e:
             _LOGGER.error("API request failed: %s", e)
-            raise
+            raise JackeryConnectionError(f"API request failed: {e}") from e
 
     def get_device_list(self) -> dict:
         """Get the list of devices."""

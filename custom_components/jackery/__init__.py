@@ -9,13 +9,14 @@ import async_timeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
 from homeassistant.util import dt as dt_util
 
-from .api import JackeryAPI, JackeryAuthenticationError
+from .api import JackeryAPI, JackeryAuthenticationError, JackeryConnectionError
 from .const import DOMAIN, POLLING_INTERVAL_SEC
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
@@ -41,15 +42,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         # Get the list of devices to set up coordinators for each one
         device_list_response = await hass.async_add_executor_job(api.get_device_list)
-        devices = device_list_response.get("data", [])
-        if not devices:
-            _LOGGER.warning("No Jackery devices found for this account.")
-            return False
     except JackeryAuthenticationError as err:
-        _LOGGER.error("Authentication failed while fetching device list: %s", err)
-        return False
+        raise ConfigEntryError(
+            f"Authentication failed while fetching device list: {err}"
+        ) from err
+    except JackeryConnectionError as err:
+        # The cloud is not reachable yet, e.g. Home Assistant started before the
+        # router/internet came back after a power outage. Let Home Assistant retry
+        # the setup in the background instead of failing until a manual reload.
+        raise ConfigEntryNotReady(f"Unable to reach the Jackery cloud: {err}") from err
     except Exception as err:
-        _LOGGER.error("Failed to fetch device list: %s", err)
+        raise ConfigEntryNotReady(f"Failed to fetch device list: {err}") from err
+
+    devices = device_list_response.get("data", [])
+    if not devices:
+        _LOGGER.warning("No Jackery devices found for this account.")
         return False
 
     coordinators = {}
